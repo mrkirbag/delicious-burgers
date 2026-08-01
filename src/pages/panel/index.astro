@@ -1,0 +1,62 @@
+---
+import DeliveryManager from '@/components/delivery/DeliveryManager';
+import TablesManager from '@/components/tables/TablesManager';
+import PanelLayout from '@/layouts/PanelLayout.astro';
+import type { UserRole } from '@/lib/db/types';
+
+const session = Astro.locals.session!;
+
+const ORDER_VIEW_ROLES: UserRole[] = ['admin', 'cajero', 'mesero'];
+const showOrderSections = ORDER_VIEW_ROLES.includes(session.role);
+const isAdmin = session.role === 'admin';
+---
+
+<PanelLayout title="Inicio | Panel">
+  <div class="dashboard">
+    <header class="dashboard__header">
+      <p class="dashboard__eyebrow">Panel de control</p>
+      <h1 class="dashboard__title">Bienvenido, {session.username}</h1>
+    </header>
+
+    {
+      showOrderSections && (
+        <>
+          <section class="dashboard__section" aria-label="Estado de mesas">
+            <TablesManager client:load isAdmin={isAdmin} variant="dashboard" />
+          </section>
+
+          <section class="dashboard__section" aria-label="Domicilios activos">
+            <DeliveryManager client:load variant="dashboard" />
+          </section>
+        </>
+      )
+    }
+  </div>
+</PanelLayout>
+
+<style>
+  .dashboard__header {
+    margin-bottom: 1.5rem;
+  }
+
+  .dashboard__eyebrow {
+    margin: 0 0 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+  }
+
+  .dashboard__title {
+    margin: 0;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+  }
+
+  .dashboard__section + .dashboard__section {
+    margin-top: 2rem;
+  }
+</style>

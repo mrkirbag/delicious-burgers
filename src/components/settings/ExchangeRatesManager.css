@@ -1,0 +1,212 @@
+.exchange-rates__loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  color: var(--color-text-muted);
+}
+
+.exchange-rates__spin {
+  animation: exchange-rates-spin 0.8s linear infinite;
+}
+
+@keyframes exchange-rates-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.exchange-rates__alert {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.exchange-rates__alert--error {
+  background: color-mix(in srgb, var(--color-error) 10%, white);
+  color: var(--color-error);
+  border: 1px solid color-mix(in srgb, var(--color-error) 25%, white);
+}
+
+.exchange-rates__alert--success {
+  background: color-mix(in srgb, var(--color-success) 10%, white);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 25%, white);
+}
+
+.exchange-rates__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .exchange-rates__layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.exchange-rates__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.exchange-rates__card {
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.exchange-rates__card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.exchange-rates__card-header h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.exchange-rates__card-header p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.exchange-rates__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.exchange-rates__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-background);
+}
+
+.exchange-rates__prefix {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.exchange-rates__input {
+  width: 100%;
+  padding: 0.75rem 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.exchange-rates__input:focus {
+  outline: none;
+}
+
+.exchange-rates__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.exchange-rates__btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.exchange-rates__updated {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.exchange-rates__preview {
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
+}
+
+.exchange-rates__preview h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.exchange-rates__preview-desc {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.exchange-rates__preview-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.exchange-rates__preview-grid div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.exchange-rates__preview-grid dt {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.exchange-rates__preview-grid dd {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.exchange-rates__preview-empty,
+.exchange-rates__note {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.exchange-rates__note {
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}

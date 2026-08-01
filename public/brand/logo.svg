@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" fill="none">
+  <rect x="8" y="18" width="44" height="44" rx="12" fill="#E85D04"/>
+  <path d="M20 38h20M20 44h14" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <text x="64" y="52" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Delicious Burger</text>
+</svg>

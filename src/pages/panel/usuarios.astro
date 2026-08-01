@@ -1,0 +1,44 @@
+---
+import UsersManager from '@/components/users/UsersManager';
+import PanelLayout from '@/layouts/PanelLayout.astro';
+
+const session = Astro.locals.session!;
+
+if (session.role !== 'admin') {
+  return Astro.redirect('/panel');
+}
+---
+
+<PanelLayout title="Usuarios | Panel">
+  <div class="users-page">
+    <header class="users-page__header">
+      <p class="users-page__eyebrow">Administración</p>
+      <h1 class="users-page__title">Usuarios</h1>
+    </header>
+
+    <UsersManager client:load currentUserId={session.userId} />
+  </div>
+</PanelLayout>
+
+<style>
+  .users-page__header {
+    margin-bottom: 1.5rem;
+  }
+
+  .users-page__eyebrow {
+    margin: 0 0 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+  }
+
+  .users-page__title {
+    margin: 0;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+  }
+</style>

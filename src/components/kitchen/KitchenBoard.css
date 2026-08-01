@@ -1,0 +1,211 @@
+.kitchen-board__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.kitchen-board__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+}
+
+.kitchen-board__summary-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 0.5rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--color-primary) 12%, white);
+  color: var(--color-primary);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.kitchen-board__summary-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.kitchen-board__hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.kitchen-board__alert {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-error) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--color-error) 25%, white);
+  color: var(--color-error);
+  font-size: 0.875rem;
+}
+
+.kitchen-board__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 1rem;
+}
+
+.kitchen-board__card {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid color-mix(in srgb, var(--color-primary) 35%, white);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 6%);
+}
+
+.kitchen-board__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--color-primary) 10%, white);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 20%, white);
+}
+
+.kitchen-board__card-table {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.kitchen-board__card-address {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.kitchen-board__card-time {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.kitchen-board__items {
+  flex: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem 1rem;
+}
+
+.kitchen-board__item {
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.kitchen-board__item:last-child {
+  border-bottom: none;
+}
+
+.kitchen-board__item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.kitchen-board__item-qty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.375rem;
+  border-radius: 0.5rem;
+  background: var(--color-secondary);
+  color: var(--color-secondary-foreground);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.kitchen-board__item-name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.kitchen-board__item-notes {
+  margin: 0.25rem 0 0 2.375rem;
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--color-primary);
+}
+
+.kitchen-board__card-footer {
+  padding: 0.875rem 1rem 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.kitchen-board__ready-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: var(--color-success);
+  color: white;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.kitchen-board__ready-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.kitchen-board__loading,
+.kitchen-board__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 4rem 1.5rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.kitchen-board__empty p {
+  margin: 0;
+  max-width: 22rem;
+  line-height: 1.5;
+}
+
+.kitchen-board__spin {
+  animation: kitchen-spin 0.8s linear infinite;
+}
+
+@keyframes kitchen-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

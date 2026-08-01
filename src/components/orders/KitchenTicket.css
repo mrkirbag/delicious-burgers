@@ -1,0 +1,122 @@
+.kitchen-ticket {
+  width: 50mm;
+  max-width: 50mm;
+  margin: 0 auto;
+  padding: 3mm 2mm;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.25rem;
+  background: #fff;
+  color: #000;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.kitchen-ticket__header {
+  text-align: center;
+}
+
+.kitchen-ticket__brand {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kitchen-ticket__title {
+  margin: 0.25rem 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.kitchen-ticket__divider {
+  border-top: 1px dashed #000;
+  margin: 0.4rem 0;
+}
+
+.kitchen-ticket__meta,
+.kitchen-ticket__delivery,
+.kitchen-ticket__footer {
+  margin: 0;
+}
+
+.kitchen-ticket__meta p,
+.kitchen-ticket__delivery p,
+.kitchen-ticket__footer p {
+  margin: 0.15rem 0;
+}
+
+.kitchen-ticket__order-label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kitchen-ticket__notes {
+  font-style: italic;
+}
+
+.kitchen-ticket__item + .kitchen-ticket__item {
+  margin-top: 0.45rem;
+}
+
+.kitchen-ticket__item-row {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.kitchen-ticket__qty {
+  flex-shrink: 0;
+  min-width: 1.5rem;
+}
+
+.kitchen-ticket__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.kitchen-ticket__item-notes {
+  margin: 0.1rem 0 0 1.85rem;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.kitchen-ticket__footer {
+  text-align: center;
+  font-size: 10px;
+}
+
+@media print {
+  @page {
+    size: 50mm auto;
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #kitchen-ticket,
+  #kitchen-ticket * {
+    visibility: visible !important;
+  }
+
+  #kitchen-ticket {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 50mm;
+    max-width: 50mm;
+    margin: 0;
+    padding: 2mm;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: #fff;
+    color: #000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

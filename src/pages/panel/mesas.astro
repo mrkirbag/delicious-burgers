@@ -1,0 +1,41 @@
+---
+import TablesManager from '@/components/tables/TablesManager';
+import PanelLayout from '@/layouts/PanelLayout.astro';
+
+const session = Astro.locals.session!;
+const isAdmin = session.role === 'admin';
+---
+
+<PanelLayout title="Mesas | Panel">
+  <div class="panel-page">
+    <header class="panel-page__header">
+      <p class="panel-page__eyebrow">Comandas</p>
+      <h1 class="panel-page__title">Mesas</h1>
+    </header>
+
+    <TablesManager client:load isAdmin={isAdmin} />
+  </div>
+</PanelLayout>
+
+<style>
+  .panel-page__header {
+    margin-bottom: 1.5rem;
+  }
+
+  .panel-page__eyebrow {
+    margin: 0 0 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+  }
+
+  .panel-page__title {
+    margin: 0;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+  }
+</style>

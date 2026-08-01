@@ -1,0 +1,104 @@
+.sale-ticket {
+  width: 50mm;
+  max-width: 50mm;
+  margin: 0 auto;
+  padding: 3mm 2mm;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.25rem;
+  background: #fff;
+  color: #000;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.sale-ticket__header {
+  text-align: center;
+}
+
+.sale-ticket__brand {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sale-ticket__header p {
+  margin: 0.15rem 0 0;
+}
+
+.sale-ticket__divider {
+  border-top: 1px dashed #000;
+  margin: 0.4rem 0;
+}
+
+.sale-ticket__meta p {
+  margin: 0.15rem 0;
+}
+
+.sale-ticket__order-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sale-ticket__line {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin: 0.15rem 0;
+}
+
+.sale-ticket__line span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.sale-ticket__line span:last-child {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.sale-ticket__total {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.sale-ticket__payment,
+.sale-ticket__footer {
+  margin: 0.4rem 0 0;
+  text-align: center;
+  font-size: 10px;
+}
+
+@media print {
+  @page {
+    size: 50mm auto;
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #sale-ticket,
+  #sale-ticket * {
+    visibility: visible !important;
+  }
+
+  #sale-ticket {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 50mm;
+    max-width: 50mm;
+    margin: 0;
+    padding: 2mm;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: #fff;
+    color: #000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

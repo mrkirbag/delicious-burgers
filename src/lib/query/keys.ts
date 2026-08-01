@@ -1,0 +1,15 @@
+export const queryKeys = {
+  exchangeRates: ['exchange-rates'] as const,
+  orders: (params?: { pendingPayment?: boolean }) => ['orders', params ?? {}] as const,
+  order: (id: string) => ['orders', id] as const,
+  menuProducts: ['menu-products'] as const,
+  kitchenOrders: ['kitchen-orders'] as const,
+  tables: ['tables'] as const,
+  cashRegister: ['cash-register'] as const,
+  cashFlow: ['cash-flow'] as const,
+  reports: ['reports'] as const,
+  invoices: ['invoices'] as const,
+  products: ['products'] as const,
+  inventory: ['inventory'] as const,
+  users: ['users'] as const,
+};
