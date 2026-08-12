@@ -7,7 +7,7 @@ import { validateDeliveryInput } from '@/lib/orders/display';
 
 const ORDER_ROLES: UserRole[] = ['admin', 'cajero', 'mesero'];
 
-const VALID_STATUSES: OrderStatus[] = ['pendiente', 'cocina', 'listo', 'entregado'];
+const VALID_STATUSES: OrderStatus[] = ['pendiente', 'pagado', 'cocina', 'listo', 'entregado'];
 const VALID_ORDER_TYPES: OrderType[] = ['mesa', 'delivery'];
 
 export const GET: APIRoute = async (context) => {

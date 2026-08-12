@@ -9,7 +9,11 @@ if (!id) {
   return Astro.redirect('/panel/comandas');
 }
 
-const canDeliver = session.role === 'admin' || session.role === 'cajero' || session.role === 'mesero';
+const canDeliver =
+  session.role === 'admin' ||
+  session.role === 'cajero' ||
+  session.role === 'mesero' ||
+  session.role === 'cocina';
 ---
 
 <PanelLayout title="Comanda | Panel">

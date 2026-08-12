@@ -625,7 +625,7 @@
 
 .order-view__modal {
   width: 100%;
-  max-width: 24rem;
+  max-width: 28rem;
   border-radius: 1rem;
   box-shadow: 0 20px 40px rgb(0 0 0 / 15%);
 }
@@ -694,6 +694,52 @@
 .order-view__field input:focus {
   outline: none;
   border-color: var(--color-primary);
+}
+
+.order-view__note-options {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.order-view__note-options legend {
+  padding: 0;
+  margin-bottom: 0.5rem;
+}
+
+.order-view__note-options-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.order-view__note-option {
+  padding: 0.4375rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-background);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.order-view__note-option:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  color: var(--color-text);
+}
+
+.order-view__note-option--selected {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, white);
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .order-view__modal-actions {

@@ -25,6 +25,7 @@ import { formatOrderLabel } from '@/lib/orders/display';
 import {
   canMarkOrderDelivered,
   canPayOrder,
+  DELIVERY_PAYMENT_TIMING_DESCRIPTIONS,
   DELIVERY_PAYMENT_TIMING_LABELS,
   getDeliveryPaymentTiming,
   type DeliveryPaymentTiming,
@@ -60,9 +61,9 @@ const EMPTY_FORM: DeliveryForm = {
 
 const STATUS_PRIORITY: Record<OrderStatus, number> = {
   listo: 0,
-  cocina: 1,
-  pendiente: 2,
-  pagado: 3,
+  pagado: 1,
+  cocina: 2,
+  pendiente: 3,
   entregado: 4,
   cancelado: 5,
 };
@@ -77,8 +78,8 @@ function DeliveryManager({ variant = 'full' }: DeliveryManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<DeliveryForm>(EMPTY_FORM);
 
-  const readyCount = useMemo(
-    () => orders.filter((order) => order.status === 'listo').length,
+  const kitchenCount = useMemo(
+    () => orders.filter((order) => order.status === 'cocina').length,
     [orders],
   );
 
@@ -158,8 +159,8 @@ function DeliveryManager({ variant = 'full' }: DeliveryManagerProps) {
               onClick={() => setStatusFilter(option.id)}
             >
               {option.label}
-              {option.id === 'listo' && readyCount > 0 && (
-                <span className="delivery-manager__filter-badge">{readyCount}</span>
+              {option.id === 'cocina' && kitchenCount > 0 && (
+                <span className="delivery-manager__filter-badge">{kitchenCount}</span>
               )}
             </button>
           ))}
@@ -220,7 +221,7 @@ function DeliveryManager({ variant = 'full' }: DeliveryManagerProps) {
             <a
               key={order.id}
               href={`/panel/comandas/${order.id}`}
-              className={`delivery-manager__card ${order.status === 'listo' ? 'delivery-manager__card--ready' : ''}`}
+              className={`delivery-manager__card ${order.status === 'cocina' ? 'delivery-manager__card--ready' : ''}`}
             >
               <div className="delivery-manager__card-header">
                 <h2 className="delivery-manager__card-title">{formatOrderLabel(order)}</h2>
@@ -296,7 +297,7 @@ function DeliveryManager({ variant = 'full' }: DeliveryManagerProps) {
                     </button>
                   ) : canPayOrder(order) ? (
                     <span className="delivery-manager__card-action delivery-manager__card-action--pay">
-                      Facturar en caja →
+                      Cobrar en caja →
                     </span>
                   ) : (
                     <span className="delivery-manager__card-action">Ver pedido →</span>
@@ -383,6 +384,8 @@ function DeliveryManager({ variant = 'full' }: DeliveryManagerProps) {
                   />
                   <span>
                     <strong>{DELIVERY_PAYMENT_TIMING_LABELS[timing]}</strong>
+                    <br />
+                    <small>{DELIVERY_PAYMENT_TIMING_DESCRIPTIONS[timing]}</small>
                   </span>
                 </label>
               ))}

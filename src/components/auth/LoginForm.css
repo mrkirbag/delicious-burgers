@@ -11,6 +11,9 @@
 .login-form__logo-mobile {
   display: none;
   margin-bottom: 1.25rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #000;
 }
 
 .login-form__title {

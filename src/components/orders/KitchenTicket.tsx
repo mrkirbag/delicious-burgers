@@ -2,6 +2,7 @@ import { brand } from '@/data/brand';
 import type { OrderItemWithProduct } from '@/lib/db/orders';
 import type { Order } from '@/lib/db/types';
 import { formatOrderLabel } from '@/lib/orders/display';
+import { getItemPreferenceLabel } from '@/lib/orders/item-preferences';
 
 import './KitchenTicket.css';
 
@@ -68,15 +69,19 @@ export default function KitchenTicket({
       <div className="kitchen-ticket__divider" />
 
       <section className="kitchen-ticket__items">
-        {items.map((item) => (
-          <div key={item.id} className="kitchen-ticket__item">
-            <p className="kitchen-ticket__item-row">
-              <span className="kitchen-ticket__qty">{item.quantity}x</span>
-              <span className="kitchen-ticket__name">{item.product_name}</span>
-            </p>
-            {item.notes && <p className="kitchen-ticket__item-notes">* {item.notes}</p>}
-          </div>
-        ))}
+        {items.map((item) => {
+          const preferences = getItemPreferenceLabel(item);
+
+          return (
+            <div key={item.id} className="kitchen-ticket__item">
+              <p className="kitchen-ticket__item-row">
+                <span className="kitchen-ticket__qty">{item.quantity}x</span>
+                <span className="kitchen-ticket__name">{item.product_name}</span>
+              </p>
+              {preferences && <p className="kitchen-ticket__item-notes">* {preferences}</p>}
+            </div>
+          );
+        })}
       </section>
 
       <div className="kitchen-ticket__divider" />

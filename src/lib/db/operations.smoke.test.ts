@@ -28,7 +28,7 @@ describe('operational smoke flow', () => {
     await db.execute({
       sql: `
         INSERT INTO products (id, name, price, category, active)
-        VALUES (?, 'Hamburguesa clásica', 25000, 'Hamburguesas', 1)
+        VALUES (?, 'Hamburguesa clásica', 25000, 'clasicas', 1)
       `,
       args: [productId],
     });
@@ -64,18 +64,9 @@ describe('operational smoke flow', () => {
     expect(updated?.total).toBe(50_000);
   });
 
-  it('envía la comanda a cocina y la deja lista para cobrar', async () => {
-    const { sendOrderToKitchen, markOrderReady, getOrderById } = await import('@/lib/db/orders');
-
-    await sendOrderToKitchen(orderId);
-    await markOrderReady(orderId);
-
-    const updated = await getOrderById(orderId);
-    expect(updated?.status).toBe('entregado');
-  });
-
-  it('cobra la comanda en caja', async () => {
+  it('al cobrar envía automáticamente a cocina', async () => {
     const { payOrder, getOrderById } = await import('@/lib/db/orders');
+    const { getTableById } = await import('@/lib/db/tables');
 
     const paid = await payOrder(orderId, cashRegisterId, [
       {
@@ -86,10 +77,25 @@ describe('operational smoke flow', () => {
       },
     ]);
 
-    expect(paid.status).toBe('pagado');
+    expect(paid.status).toBe('cocina');
+    expect(paid.cash_register_id).toBe(cashRegisterId);
 
     const updated = await getOrderById(orderId);
-    expect(updated?.status).toBe('pagado');
+    expect(updated?.status).toBe('cocina');
+
+    const table = await getTableById(tableId);
+    expect(table?.status).toBe('ocupada');
+  });
+
+  it('al marcar listo queda entregado y la mesa pasa a limpieza', async () => {
+    const { markOrderReady, getOrderById } = await import('@/lib/db/orders');
+    const { getTableById } = await import('@/lib/db/tables');
+
+    await markOrderReady(orderId);
+    expect((await getOrderById(orderId))?.status).toBe('entregado');
+
+    const table = await getTableById(tableId);
+    expect(table?.status).toBe('limpieza');
   });
 
   it('cierra la caja del turno', async () => {
@@ -101,5 +107,6 @@ describe('operational smoke flow', () => {
     const register = await getCashRegisterById(cashRegisterId);
     expect(register?.status).toBe('closed');
     expect(register?.actual_balance).toBe(150_000);
+    expect(register?.total_sales).toBe(50_000);
   });
 });

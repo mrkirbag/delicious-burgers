@@ -29,7 +29,13 @@ type TablesManagerProps = {
 const STATUS_LABELS: Record<TableStatus, string> = {
   libre: 'Libre',
   ocupada: 'Ocupada',
-  limpieza: 'Limpieza',
+  limpieza: 'Por limpiar',
+};
+
+const STATUS_HINTS: Record<TableStatus, string> = {
+  libre: 'Toca para abrir comanda',
+  ocupada: 'Clientes en mesa · Ver comanda',
+  limpieza: 'Toca aquí para limpiar',
 };
 
 const emptyForm: TableFormState = {
@@ -281,7 +287,11 @@ function TablesManager({ isAdmin = false, variant = 'full' }: TablesManagerProps
                   }
                 }}
                 aria-disabled={isActing}
-                aria-label={`Mesa ${table.number}, ${STATUS_LABELS[table.status]}`}
+                aria-label={
+                  table.status === 'limpieza'
+                    ? `Mesa ${table.number}, ocupada por limpiar. Toca para dejar disponible`
+                    : `Mesa ${table.number}, ${STATUS_LABELS[table.status]}`
+                }
                 style={isActing ? { opacity: 0.7, pointerEvents: 'none' } : undefined}
               >
                 {showAdminTools && (
@@ -306,13 +316,26 @@ function TablesManager({ isAdmin = false, variant = 'full' }: TablesManagerProps
                 )}
 
                 <span className="tables-manager__card-number">{table.number}</span>
-                <span className="tables-manager__card-label">{STATUS_LABELS[table.status]}</span>
+                <span className="tables-manager__card-label">
+                  {table.status === 'limpieza' ? 'Ocupada' : STATUS_LABELS[table.status]}
+                </span>
+                {table.status === 'limpieza' && (
+                  <span className="tables-manager__card-sublabel">Por limpiar</span>
+                )}
                 <span className="tables-manager__card-capacity">
                   <Users size={12} style={{ display: 'inline', verticalAlign: '-2px' }} /> {table.capacity}{' '}
                   personas
                 </span>
-                {isActing && (
+                {isActing ? (
                   <span className="tables-manager__card-hint">Procesando…</span>
+                ) : (
+                  <span
+                    className={`tables-manager__card-hint${
+                      table.status === 'limpieza' ? ' tables-manager__card-hint--action' : ''
+                    }`}
+                  >
+                    {STATUS_HINTS[table.status]}
+                  </span>
                 )}
               </div>
             );

@@ -19,6 +19,7 @@ import {
 import { getMenuCategoryLabel, menuCategories } from '@/data/product-categories';
 import MultiCurrencyPrice from '@/components/ui/MultiCurrencyPrice';
 import KitchenTicketModal from '@/components/orders/KitchenTicketModal';
+import SaleTicketModal from '@/components/tickets/SaleTicketModal';
 import { Alert, Spinner } from '@/components/ui/Feedback';
 import Modal from '@/components/ui/Modal';
 import { isDeliveryReadyForDispatch, openDeliveryReadyWhatsApp } from '@/lib/delivery/whatsapp';
@@ -27,6 +28,11 @@ import type { Product } from '@/lib/db/types';
 import { useExchangeRates } from '@/lib/hooks/queries/useExchangeRates';
 import { useOrderDetail } from '@/lib/hooks/queries/useOrderDetail';
 import { formatOrderLabel } from '@/lib/orders/display';
+import {
+  DEFAULT_ITEM_PREFERENCE,
+  getItemPreferenceLabel,
+  productUsesPreferences,
+} from '@/lib/orders/item-preferences';
 import { formatCop } from '@/lib/utils/currency';
 import {
   canMarkOrderDelivered,
@@ -34,6 +40,7 @@ import {
   canSendOrderToKitchen,
   DELIVERY_PAYMENT_TIMING_LABELS,
   getDeliveryPaymentTiming,
+  getOrderStatusHint,
 } from '@/lib/orders/delivery-flow';
 import { STATUS_LABELS } from '@/lib/orders/labels';
 import { parseError } from '@/lib/api/parseError';
@@ -50,16 +57,44 @@ type OrderViewProps = {
 
 type CategoryFilter = string | 'all';
 
+const ITEM_NOTE_OPTIONS = [
+  DEFAULT_ITEM_PREFERENCE,
+  'Sin vegetales',
+  'Sin cebolla',
+  'Sin lechuga',
+  'Sin tomate',
+  'Sin pepinillos',
+  'Sin salsa',
+  'Sin queso',
+  'Sin tocineta',
+] as const;
+
+const DEFAULT_ITEM_NOTE = DEFAULT_ITEM_PREFERENCE;
+
 type AddItemForm = {
   product: Product;
   quantity: string;
-  notes: string;
+  noteOptions: string[];
 };
 
-type ActingAction = 'add-item' | 'send-kitchen' | 'cancel' | 'deliver';
+type ActingAction = 'add-item' | 'send-kitchen' | 'cancel' | 'deliver' | 'mark-ready';
 
 function formatPrice(value: number): string {
   return formatCop(value);
+}
+
+function toggleItemNoteOption(current: string[], option: string): string[] {
+  if (option === DEFAULT_ITEM_NOTE) {
+    return [DEFAULT_ITEM_NOTE];
+  }
+
+  const withoutDefault = current.filter((value) => value !== DEFAULT_ITEM_NOTE);
+  const isSelected = withoutDefault.includes(option);
+  const next = isSelected
+    ? withoutDefault.filter((value) => value !== option)
+    : [...withoutDefault, option];
+
+  return next.length === 0 ? [DEFAULT_ITEM_NOTE] : next;
 }
 
 function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
@@ -75,6 +110,7 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [kitchenTicketOpen, setKitchenTicketOpen] = useState(false);
   const [kitchenTicketSentAt, setKitchenTicketSentAt] = useState<string | null>(null);
+  const [saleTicketOpen, setSaleTicketOpen] = useState(false);
 
   const isEditable = data?.order.status === 'pendiente';
 
@@ -97,6 +133,9 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
   const invalidateOrder = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.order(orderId) });
     void queryClient.invalidateQueries({ queryKey: ['orders'] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.tables });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.cashRegister });
   };
 
   const addItemMutation = useMutation({
@@ -197,6 +236,30 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
     onSettled: () => setActingAction(null),
   });
 
+  const markReadyMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'listo' }),
+      });
+      if (!response.ok) throw new Error(await parseError(response));
+      return response.json();
+    },
+    onMutate: () => {
+      setActingAction('mark-ready');
+      setActionError('');
+    },
+    onSuccess: () => {
+      invalidateOrder();
+      if (data?.order.order_type === 'delivery') {
+        openDeliveryReadyWhatsApp(data.order);
+      }
+    },
+    onError: (err) => setActionError(err instanceof Error ? err.message : 'No se pudo marcar listo'),
+    onSettled: () => setActingAction(null),
+  });
+
   const cancelMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch(`/api/orders/${orderId}`, {
@@ -232,10 +295,17 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
       return;
     }
 
+    const showNoteOptions = productUsesPreferences(addForm.product.category);
+
+    if (showNoteOptions && addForm.noteOptions.length === 0) {
+      setActionError('Selecciona al menos una preferencia');
+      return;
+    }
+
     addItemMutation.mutate({
       product_id: addForm.product.id,
       quantity,
-      notes: addForm.notes.trim() || undefined,
+      notes: showNoteOptions ? addForm.noteOptions.join(', ') : undefined,
     });
   }
 
@@ -261,13 +331,15 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
     return <Alert className="order-view__alert">Comanda no encontrada</Alert>;
   }
 
-  const { order, items, table } = data;
+  const { order, items, table, payments = [] } = data;
   const showSendToKitchen = canSendOrderToKitchen(order);
-  const showPayLink = canPayOrder(order);
+  const showPayLink = canPayOrder(order) && items.length > 0;
   const showDeliverButton = canDeliver && canMarkOrderDelivered(order);
+  const statusHint = getOrderStatusHint(order);
   const isSendingKitchen = actingAction === 'send-kitchen';
   const isCancelling = actingAction === 'cancel';
   const isDelivering = actingAction === 'deliver';
+  const isMarkingReady = actingAction === 'mark-ready';
   const isAddingItem = actingAction === 'add-item';
 
   return (
@@ -293,6 +365,8 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
           {STATUS_LABELS[order.status]}
         </span>
       </div>
+
+      {statusHint && <p className="order-view__hint">{statusHint}</p>}
 
       {displayError && data && <Alert className="order-view__alert">{displayError}</Alert>}
 
@@ -354,7 +428,11 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
                     type="button"
                     className="order-view__product-card"
                     onClick={() => {
-                      setAddForm({ product, quantity: '1', notes: '' });
+                      setAddForm({
+                        product,
+                        quantity: '1',
+                        noteOptions: [DEFAULT_ITEM_NOTE],
+                      });
                       setActionError('');
                     }}
                   >
@@ -386,13 +464,14 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
             <ul className="order-view__items">
               {items.map((item) => {
                 const isItemActing = actingItemId === item.id;
+                const preferences = getItemPreferenceLabel(item);
 
                 return (
                   <li key={item.id} className="order-view__item">
                     <div className="order-view__item-main">
                       <div>
                         <p className="order-view__item-name">{item.product_name}</p>
-                        {item.notes && <p className="order-view__item-notes">{item.notes}</p>}
+                        {preferences && <p className="order-view__item-notes">{preferences}</p>}
                         <p className="order-view__item-unit">
                           <MultiCurrencyPrice
                             amountCop={item.price_at_sale}
@@ -473,25 +552,20 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
 
             {isEditable && (
               <>
-                {showSendToKitchen && (
+                {items.length > 0 && (
                   <button
                     type="button"
-                    className="order-view__send-btn"
-                    onClick={() => sendKitchenMutation.mutate()}
-                    disabled={isSendingKitchen || items.length === 0}
+                    className="order-view__print-ticket-btn"
+                    onClick={() => setSaleTicketOpen(true)}
                   >
-                    {isSendingKitchen ? (
-                      <Loader2 className="order-view__spin" size={16} />
-                    ) : (
-                      <ChefHat size={16} />
-                    )}
-                    Enviar a cocina
+                    <Printer size={16} />
+                    Imprimir ticket
                   </button>
                 )}
                 {showPayLink && (
                   <a href="/panel/caja" className="order-view__pay-link">
                     <Receipt size={16} />
-                    Cobrar en caja primero
+                    Cobrar y facturar en caja
                   </a>
                 )}
                 <button
@@ -523,14 +597,31 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
             )}
 
             {!isEditable && order.status === 'cocina' && (
-              <button
-                type="button"
-                className="order-view__print-ticket-btn"
-                onClick={() => setKitchenTicketOpen(true)}
-              >
-                <Printer size={16} />
-                Ver ticket de cocina
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="order-view__print-ticket-btn"
+                  onClick={() => setKitchenTicketOpen(true)}
+                >
+                  <Printer size={16} />
+                  Ver ticket de cocina
+                </button>
+                {canDeliver && (
+                  <button
+                    type="button"
+                    className="order-view__deliver-btn"
+                    onClick={() => markReadyMutation.mutate()}
+                    disabled={isMarkingReady}
+                  >
+                    {isMarkingReady ? (
+                      <Loader2 className="order-view__spin" size={16} />
+                    ) : (
+                      <CheckCircle2 size={16} />
+                    )}
+                    Listo y entregar
+                  </button>
+                )}
+              </>
             )}
 
             {!isEditable && order.status === 'listo' && (
@@ -558,13 +649,6 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
                   </button>
                 )}
               </>
-            )}
-
-            {showPayLink && !isEditable && (
-              <a href="/panel/caja" className="order-view__pay-link">
-                <Receipt size={16} />
-                Facturar y cobrar en caja
-              </a>
             )}
 
             {showDeliverButton && (
@@ -658,18 +742,36 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
               />
             </label>
 
-            <label className="order-view__field">
-              Notas (opcional)
-              <input
-                type="text"
-                placeholder='Ej: "Sin cebolla", "Bien cocido"'
-                value={addForm.notes}
-                onChange={(event) =>
-                  setAddForm((prev) => (prev ? { ...prev, notes: event.target.value } : prev))
-                }
-                maxLength={120}
-              />
-            </label>
+            {productUsesPreferences(addForm.product.category) && (
+              <fieldset className="order-view__field order-view__note-options">
+                <legend>Preferencias</legend>
+                <div className="order-view__note-options-grid" role="group" aria-label="Preferencias del producto">
+                  {ITEM_NOTE_OPTIONS.map((option) => {
+                    const selected = addForm.noteOptions.includes(option);
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`order-view__note-option${selected ? ' order-view__note-option--selected' : ''}`}
+                        aria-pressed={selected}
+                        onClick={() =>
+                          setAddForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  noteOptions: toggleItemNoteOption(prev.noteOptions, option),
+                                }
+                              : prev,
+                          )
+                        }
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
 
             <div className="order-view__modal-actions">
               <button
@@ -699,6 +801,18 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
           tableNumber={table?.number ?? null}
           sentAt={kitchenTicketSentAt ?? order.updated_at}
           onClose={() => setKitchenTicketOpen(false)}
+        />
+      )}
+
+      {saleTicketOpen && (
+        <SaleTicketModal
+          order={order}
+          items={items}
+          tableNumber={table?.number ?? null}
+          payments={payments}
+          paymentPreview={order.cash_register_id ? undefined : 'Por cobrar'}
+          title={order.cash_register_id ? 'Ticket de venta' : 'Ticket del pedido'}
+          onClose={() => setSaleTicketOpen(false)}
         />
       )}
     </div>

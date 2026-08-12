@@ -12,6 +12,7 @@ import {
   type InvoiceFilters,
 } from '@/lib/hooks/queries/useInvoices';
 import { formatOrderLabel } from '@/lib/orders/display';
+import { getItemPreferenceLabel } from '@/lib/orders/item-preferences';
 import { getPaymentLabel } from '@/lib/payments/methods';
 import { withAppProviders } from '@/lib/providers/withAppProviders';
 import { formatDateTime } from '@/lib/utils/datetime';
@@ -238,17 +239,21 @@ function InvoicesList() {
             </div>
 
             <ul className="invoices-list__detail-items">
-              {detail.items.map((item) => (
-                <li key={item.id}>
-                  <span>
-                    {item.quantity}× {item.product_name}
-                    {item.notes && (
-                      <em className="invoices-list__item-note"> ({item.notes})</em>
-                    )}
-                  </span>
-                  <span>{formatPrice(item.quantity * item.price_at_sale)}</span>
-                </li>
-              ))}
+              {detail.items.map((item) => {
+                const preferences = getItemPreferenceLabel(item);
+
+                return (
+                  <li key={item.id}>
+                    <span>
+                      {item.quantity}× {item.product_name}
+                      {preferences && (
+                        <em className="invoices-list__item-note"> ({preferences})</em>
+                      )}
+                    </span>
+                    <span>{formatPrice(item.quantity * item.price_at_sale)}</span>
+                  </li>
+                );
+              })}
             </ul>
 
             <div className="invoices-list__detail-total">
@@ -290,7 +295,8 @@ function InvoicesList() {
                 <div className="invoices-list__ticket-header">
                   <strong>{brand.name}</strong>
                   {brand.contact.address && <span>{brand.contact.address}</span>}
-                  {brand.ticket.taxId && <span>RIF: {brand.ticket.taxId}</span>}
+                  {brand.contact.phone && <span>{brand.contact.phone}</span>}
+                  {brand.contact.instagram && <span>{brand.contact.instagram}</span>}
                 </div>
                 <div className="invoices-list__ticket-divider" />
                 <p>{formatOrderLabel({ ...detail.order, table_number: detail.table_number })}</p>

@@ -36,7 +36,7 @@ type ProductFormState = {
 const emptyForm: ProductFormState = {
   name: '',
   price: '',
-  category: menuCategories[0]?.id ?? 'hamburguesas',
+  category: menuCategories[0]?.id ?? 'entradas',
   active: true,
   inventory_product_id: '',
   inventory_units_per_sale: '1',

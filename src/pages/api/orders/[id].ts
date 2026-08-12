@@ -16,12 +16,11 @@ import { isValidStatusTransition } from '@/lib/orders/delivery-flow';
 const READ_ROLES: UserRole[] = ['admin', 'cajero', 'mesero', 'cocina'];
 
 const TRANSITION_ROLES: Record<string, UserRole[]> = {
-  'pendiente:cocina': ['admin', 'cajero', 'mesero'],
   'pagado:cocina': ['admin', 'cajero', 'mesero'],
   'pendiente:cancelado': ['admin', 'cajero', 'mesero'],
-  'cocina:listo': ['admin', 'cocina'],
+  'cocina:listo': ['admin', 'cocina', 'cajero', 'mesero'],
+  'cocina:entregado': ['admin', 'cocina', 'cajero', 'mesero'],
   'listo:entregado': ['admin', 'cajero', 'mesero'],
-  'pagado:entregado': ['admin', 'cajero', 'mesero'],
 };
 
 export const GET: APIRoute = async (context) => {
@@ -93,7 +92,7 @@ export const PATCH: APIRoute = async (context) => {
 
     if (nextStatus === 'cocina') {
       updated = await sendOrderToKitchen(id);
-    } else if (nextStatus === 'listo') {
+    } else if (nextStatus === 'listo' || (nextStatus === 'entregado' && order.status === 'cocina')) {
       updated = await markOrderReady(id);
     } else if (nextStatus === 'entregado') {
       updated = await markOrderDelivered(id);

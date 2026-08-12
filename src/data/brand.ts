@@ -23,7 +23,7 @@ export type BrandAssets = {
 
 export type BrandContact = {
   phone?: string;
-  email?: string;
+  instagram?: string;
   address?: string;
   city?: string;
   country?: string;
@@ -37,7 +37,6 @@ export type BrandCurrency = {
 
 export type BrandTicket = {
   footer: string;
-  taxId?: string;
 };
 
 export type BrandDelivery = {
@@ -61,7 +60,7 @@ export type BrandConfig = {
  * Configuración white-label del cliente.
  * Para revender: cambia este archivo y el .env, sin tocar el diseño del sistema.
  *
- * Assets en public/brand/ (logo, favicon, etc.)
+ * Assets en public/brand/ (logo.webp, favicon.webp, etc.)
  */
 export const brand = {
   name: 'Delicious Burger',
@@ -76,10 +75,9 @@ export const brand = {
   },
 
   assets: {
-    logo: '/brand/logo.svg',
-    logoMark: '/brand/logo-mark.svg',
-    favicon: '/brand/favicon.svg',
-    loginBackground: '/brand/login-bg.jpg',
+    logo: '/brand/logo.webp',
+    logoMark: '/brand/favicon.webp',
+    favicon: '/brand/favicon.webp',
   },
 
   colors: {
@@ -99,16 +97,15 @@ export const brand = {
   },
 
   contact: {
-    phone: '+58 412-0000000',
-    email: 'contacto@deliciousburger.com',
-    address: 'Av. Principal, Local 12',
-    city: 'Caracas',
+    phone: '+58 424-7580992',
+    instagram: '@delicious_burgers.sc',
+    address: 'La Concordia',
+    city: 'San Cristóbal',
     country: 'Venezuela',
   },
 
   ticket: {
     footer: '¡Gracias por su preferencia!',
-    taxId: 'J-00000000-0',
   },
 
   delivery: {

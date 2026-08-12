@@ -48,6 +48,7 @@ function OrdersList() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.orders() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.tables });
     },
     onError: (err) => {
       setActionError(err instanceof Error ? err.message : 'No se pudo marcar como entregado');
@@ -169,7 +170,7 @@ function OrdersList() {
                   </button>
                 ) : canPayOrder(order) ? (
                   <span className="orders-list__card-action orders-list__card-action--pay">
-                    Facturar en caja →
+                    Cobrar en caja →
                   </span>
                 ) : (
                   <span className="orders-list__card-action">Ver comanda →</span>

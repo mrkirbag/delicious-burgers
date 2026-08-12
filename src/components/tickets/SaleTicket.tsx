@@ -2,6 +2,7 @@ import { brand } from '@/data/brand';
 import type { OrderItemWithProduct } from '@/lib/db/orders';
 import type { Order, OrderPayment } from '@/lib/db/types';
 import { formatOrderLabel } from '@/lib/orders/display';
+import { getItemPreferenceLabel } from '@/lib/orders/item-preferences';
 import { formatOrderPaymentLine } from '@/lib/payments/display';
 import { formatCop } from '@/lib/utils/currency';
 
@@ -49,7 +50,8 @@ export default function SaleTicket({
       <header className="sale-ticket__header">
         <p className="sale-ticket__brand">{brand.name}</p>
         {brand.contact.address && <p>{brand.contact.address}</p>}
-        {brand.ticket.taxId && <p>RIF: {brand.ticket.taxId}</p>}
+        {brand.contact.phone && <p>{brand.contact.phone}</p>}
+        {brand.contact.instagram && <p>{brand.contact.instagram}</p>}
       </header>
 
       <div className="sale-ticket__divider" />
@@ -66,14 +68,21 @@ export default function SaleTicket({
       <div className="sale-ticket__divider" />
 
       <section className="sale-ticket__items">
-        {items.map((item) => (
-          <div key={item.id} className="sale-ticket__line">
-            <span>
-              {item.quantity} {item.product_name}
-            </span>
-            <span>{formatCop(item.quantity * item.price_at_sale)}</span>
-          </div>
-        ))}
+        {items.map((item) => {
+          const preferences = getItemPreferenceLabel(item);
+
+          return (
+            <div key={item.id} className="sale-ticket__item">
+              <div className="sale-ticket__line">
+                <span>
+                  {item.quantity} {item.product_name}
+                </span>
+                <span>{formatCop(item.quantity * item.price_at_sale)}</span>
+              </div>
+              {preferences && <p className="sale-ticket__item-notes">* {preferences}</p>}
+            </div>
+          );
+        })}
       </section>
 
       <div className="sale-ticket__divider" />

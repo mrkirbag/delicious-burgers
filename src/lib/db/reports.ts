@@ -54,7 +54,7 @@ function buildPaidOrderFilter(filters: SalesReportFilters): {
   conditions: string[];
   args: SqlArgs;
 } {
-  const conditions = ["o.status IN ('pagado', 'entregado')"];
+  const conditions = ['o.cash_register_id IS NOT NULL'];
   const args: SqlArgs = [];
 
   if (filters.dateFrom) {

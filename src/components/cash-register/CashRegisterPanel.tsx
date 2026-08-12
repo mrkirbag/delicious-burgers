@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import PayOrderModal from '@/components/cash-register/PayOrderModal';
+import KitchenTicketModal from '@/components/orders/KitchenTicketModal';
 import { useToast } from '@/components/providers/ToastProvider';
 import SaleTicketModal from '@/components/tickets/SaleTicketModal';
 import { Alert, Spinner } from '@/components/ui/Feedback';
@@ -44,6 +45,12 @@ type PaidTicketState = {
   cashierUsername: string;
 };
 
+type KitchenTicketState = {
+  order: Order;
+  items: OrderItemWithProduct[];
+  tableNumber: string | null;
+};
+
 type CloseModalState = {
   actualBalanceCop: string;
   actualBalanceUsd: string;
@@ -72,6 +79,7 @@ function CashRegisterPanel() {
   const [initialBalanceUsd, setInitialBalanceUsd] = useState('0');
   const [payModal, setPayModal] = useState<PayModalState | null>(null);
   const [paidTicket, setPaidTicket] = useState<PaidTicketState | null>(null);
+  const [kitchenTicket, setKitchenTicket] = useState<KitchenTicketState | null>(null);
   const [closeModal, setCloseModal] = useState<CloseModalState | null>(null);
   const [closeResult, setCloseResult] = useState<CashRegisterSummary | null>(null);
 
@@ -79,6 +87,7 @@ function CashRegisterPanel() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.cashRegister });
     void queryClient.invalidateQueries({ queryKey: queryKeys.cashFlow });
     void queryClient.invalidateQueries({ queryKey: ['orders'] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders });
   }
 
   async function handleOpenRegister(event: React.FormEvent) {
@@ -149,15 +158,25 @@ function CashRegisterPanel() {
       }
 
       const data = await response.json();
-
-      setPayModal(null);
-      setPaidTicket({
+      const ticketPayload = {
         order: data.order,
         items: data.items ?? [],
         payments: data.payments ?? [],
         tableNumber: payModal.order.table_number,
         cashierUsername: register.opened_by_username,
-      });
+      };
+
+      setPayModal(null);
+      setPaidTicket(ticketPayload);
+
+      if (data.order.status === 'cocina') {
+        setKitchenTicket({
+          order: data.order,
+          items: data.items ?? [],
+          tableNumber: payModal.order.table_number,
+        });
+      }
+
       toast.success(
         `${formatOrderLabel(payModal.order)} cobrado. ${getPaySuccessMessage(payModal.order)}`,
       );
@@ -490,7 +509,17 @@ function CashRegisterPanel() {
         />
       )}
 
-      {paidTicket && (
+      {kitchenTicket && (
+        <KitchenTicketModal
+          order={kitchenTicket.order}
+          items={kitchenTicket.items}
+          tableNumber={kitchenTicket.tableNumber}
+          sentAt={kitchenTicket.order.updated_at}
+          onClose={() => setKitchenTicket(null)}
+        />
+      )}
+
+      {!kitchenTicket && paidTicket && (
         <SaleTicketModal
           order={paidTicket.order}
           items={paidTicket.items}

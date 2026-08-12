@@ -41,11 +41,22 @@
   font-weight: 700;
 }
 
+.sale-ticket__item + .sale-ticket__item {
+  margin-top: 0.35rem;
+}
+
 .sale-ticket__line {
   display: flex;
   justify-content: space-between;
   gap: 0.35rem;
   margin: 0.15rem 0;
+}
+
+.sale-ticket__item-notes {
+  margin: 0.05rem 0 0;
+  padding-left: 0.15rem;
+  font-size: 10px;
+  font-weight: 400;
 }
 
 .sale-ticket__line span:first-child {

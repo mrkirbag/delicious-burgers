@@ -1,4 +1,5 @@
 import { Printer, X } from 'lucide-react';
+import { useRef } from 'react';
 
 import type { OrderItemWithProduct } from '@/lib/db/orders';
 import type { Order, OrderPayment } from '@/lib/db/types';
@@ -27,12 +28,28 @@ export default function SaleTicketModal({
   title = 'Ticket de venta',
   onClose,
 }: SaleTicketModalProps) {
+  const backdropPointerDownRef = useRef(false);
+
   function handlePrint() {
     window.print();
   }
 
   return (
-    <div className="sale-ticket-modal__overlay" role="presentation" onClick={onClose}>
+    <div
+      className="sale-ticket-modal__overlay"
+      role="presentation"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) {
+          backdropPointerDownRef.current = true;
+        }
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget && backdropPointerDownRef.current) {
+          onClose();
+        }
+        backdropPointerDownRef.current = false;
+      }}
+    >
       <div
         className="sale-ticket-modal"
         role="dialog"
@@ -48,7 +65,7 @@ export default function SaleTicketModal({
             type="button"
             className="sale-ticket-modal__close"
             onClick={onClose}
-            aria-label="Cerrar"
+            aria-label="Cancelar"
           >
             <X size={18} />
           </button>
@@ -71,7 +88,7 @@ export default function SaleTicketModal({
             className="sale-ticket-modal__btn sale-ticket-modal__btn--ghost"
             onClick={onClose}
           >
-            Cerrar
+            Cancelar
           </button>
           <button
             type="button"

@@ -7,6 +7,7 @@ import { parseError } from '@/lib/api/parseError';
 import { openDeliveryReadyWhatsApp } from '@/lib/delivery/whatsapp';
 import { useKitchenOrders } from '@/lib/hooks/queries/useKitchenOrders';
 import { formatOrderLabel } from '@/lib/orders/display';
+import { getItemPreferenceLabel } from '@/lib/orders/item-preferences';
 import { queryKeys } from '@/lib/query/keys';
 import { withAppProviders } from '@/lib/providers/withAppProviders';
 import { elapsedMinutes, formatTime } from '@/lib/utils/datetime';
@@ -36,10 +37,12 @@ function KitchenBoard() {
     onSuccess: (orderId) => {
       const order = orders.find((item) => item.id === orderId);
       void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.tables });
+      void queryClient.invalidateQueries({ queryKey: ['orders'] });
 
       if (order?.order_type === 'delivery' && !openDeliveryReadyWhatsApp(order)) {
         setActionError(
-          'Pedido listo. No se pudo abrir WhatsApp: revisa el teléfono del cliente en Domicilios.',
+          'Pedido listo y entregado. No se pudo abrir WhatsApp: revisa el teléfono del cliente.',
         );
       }
     },
@@ -89,15 +92,21 @@ function KitchenBoard() {
                 </header>
 
                 <ul className="kitchen-board__items">
-                  {order.items.map((item) => (
-                    <li key={item.id} className="kitchen-board__item">
-                      <div className="kitchen-board__item-row">
-                        <span className="kitchen-board__item-qty">{item.quantity}</span>
-                        <p className="kitchen-board__item-name">{item.product_name}</p>
-                      </div>
-                      {item.notes && <p className="kitchen-board__item-notes">{item.notes}</p>}
-                    </li>
-                  ))}
+                  {order.items.map((item) => {
+                    const preferences = getItemPreferenceLabel(item);
+
+                    return (
+                      <li key={item.id} className="kitchen-board__item">
+                        <div className="kitchen-board__item-row">
+                          <span className="kitchen-board__item-qty">{item.quantity}</span>
+                          <p className="kitchen-board__item-name">{item.product_name}</p>
+                        </div>
+                        {preferences && (
+                          <p className="kitchen-board__item-notes">{preferences}</p>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 <footer className="kitchen-board__card-footer">
@@ -114,7 +123,7 @@ function KitchenBoard() {
                     ) : (
                       <CheckCircle2 size={16} />
                     )}
-                    {order.order_type === 'delivery' ? 'Listo y avisar' : 'Marcar listo'}
+                    {order.order_type === 'delivery' ? 'Listo, entregar y avisar' : 'Listo y entregar'}
                   </button>
                 </footer>
               </article>

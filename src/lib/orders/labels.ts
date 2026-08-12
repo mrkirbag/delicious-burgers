@@ -12,15 +12,13 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
 export const ACTIVE_ORDER_FILTER_OPTIONS = [
   { id: 'all' as const, label: 'Todas activas' },
   { id: 'pendiente' as const, label: 'Pendiente' },
+  { id: 'pagado' as const, label: 'Pagado' },
   { id: 'cocina' as const, label: 'En cocina' },
-  { id: 'listo' as const, label: 'Listo' },
-  { id: 'entregado' as const, label: 'Entregado' },
 ];
 
 export const DELIVERY_FILTER_OPTIONS = [
   { id: 'all' as const, label: 'Todos' },
   { id: 'pendiente' as const, label: 'Pendiente' },
+  { id: 'pagado' as const, label: 'Pagado' },
   { id: 'cocina' as const, label: 'En cocina' },
-  { id: 'listo' as const, label: 'Listo' },
-  { id: 'entregado' as const, label: 'Entregado' },
 ];

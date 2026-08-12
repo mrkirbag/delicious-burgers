@@ -8,7 +8,10 @@ export type TableWithActiveOrder = Table & {
   active_order_id: string | null;
 };
 
-const ACTIVE_ORDER_STATUSES = ['pendiente', 'cocina', 'listo', 'entregado'] as const;
+const ACTIVE_ORDER_SQL = `(
+  o.status IN ('pendiente', 'pagado', 'cocina', 'listo')
+  OR (o.status = 'entregado' AND o.cash_register_id IS NULL)
+)`;
 
 function mapTable(row: Record<string, unknown>): TableWithActiveOrder {
   return {
@@ -30,7 +33,7 @@ const LIST_TABLES_SQL = `
       SELECT o.id
       FROM orders o
       WHERE o.table_id = t.id
-        AND o.status IN (${ACTIVE_ORDER_STATUSES.map(() => '?').join(', ')})
+        AND ${ACTIVE_ORDER_SQL}
       ORDER BY o.created_at DESC
       LIMIT 1
     ) AS active_order_id
@@ -41,7 +44,7 @@ const LIST_TABLES_SQL = `
 export async function listTables(): Promise<TableWithActiveOrder[]> {
   const result = await db.execute({
     sql: LIST_TABLES_SQL,
-    args: [...ACTIVE_ORDER_STATUSES],
+    args: [],
   });
 
   return result.rows.map((row) => mapTable(row as Record<string, unknown>));
@@ -59,7 +62,7 @@ export async function getTableById(id: string): Promise<TableWithActiveOrder | n
           SELECT o.id
           FROM orders o
           WHERE o.table_id = t.id
-            AND o.status IN (${ACTIVE_ORDER_STATUSES.map(() => '?').join(', ')})
+            AND ${ACTIVE_ORDER_SQL}
           ORDER BY o.created_at DESC
           LIMIT 1
         ) AS active_order_id
@@ -67,7 +70,7 @@ export async function getTableById(id: string): Promise<TableWithActiveOrder | n
       WHERE t.id = ?
       LIMIT 1
     `,
-    args: [...ACTIVE_ORDER_STATUSES, id],
+    args: [id],
   });
 
   if (result.rows.length === 0) return null;
@@ -156,11 +159,11 @@ export async function countActiveOrdersForTable(tableId: string): Promise<number
   const result = await db.execute({
     sql: `
       SELECT COUNT(*) AS count
-      FROM orders
-      WHERE table_id = ?
-        AND status IN (${ACTIVE_ORDER_STATUSES.map(() => '?').join(', ')})
+      FROM orders o
+      WHERE o.table_id = ?
+        AND ${ACTIVE_ORDER_SQL}
     `,
-    args: [tableId, ...ACTIVE_ORDER_STATUSES],
+    args: [tableId],
   });
 
   return Number(result.rows[0].count);

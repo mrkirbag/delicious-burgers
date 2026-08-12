@@ -62,7 +62,7 @@ export default function KitchenTicketModal({
             type="button"
             className="kitchen-ticket-modal__close"
             onClick={onClose}
-            aria-label="Cerrar"
+            aria-label="Cancelar"
           >
             <X size={18} />
           </button>
@@ -83,7 +83,7 @@ export default function KitchenTicketModal({
             className="kitchen-ticket-modal__btn kitchen-ticket-modal__btn--ghost"
             onClick={onClose}
           >
-            Cerrar
+            Cancelar
           </button>
           <button
             type="button"

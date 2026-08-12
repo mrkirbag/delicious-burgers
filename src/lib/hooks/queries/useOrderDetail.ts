@@ -2,17 +2,26 @@ import { useQuery } from '@tanstack/react-query';
 
 import { fetchJson } from '@/lib/api/parseError';
 import type { OrderItemWithProduct } from '@/lib/db/orders';
-import type { Order, Product, TableStatus } from '@/lib/db/types';
+import type { Order, OrderPayment, Product, TableStatus } from '@/lib/db/types';
 import { queryKeys } from '@/lib/query/keys';
 
 export type OrderDetail = {
   order: Order;
   items: OrderItemWithProduct[];
+  payments: OrderPayment[];
   table: { id: string; number: string; capacity: number; status: TableStatus } | null;
 };
 
 async function fetchOrderDetail(orderId: string): Promise<OrderDetail> {
-  return fetchJson<OrderDetail>(`/api/orders/${orderId}`);
+  const data = await fetchJson<Partial<OrderDetail> & { order: Order; items: OrderItemWithProduct[] }>(
+    `/api/orders/${orderId}`,
+  );
+  return {
+    order: data.order,
+    items: data.items,
+    payments: data.payments ?? [],
+    table: data.table ?? null,
+  };
 }
 
 async function fetchMenuProducts(): Promise<Product[]> {

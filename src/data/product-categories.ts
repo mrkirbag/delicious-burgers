@@ -13,13 +13,18 @@ export type InventoryUnit = {
   label: string;
 };
 
-/** Categorías del menú para comandas (requires_inventory = false). */
+/** Categorías del menú para comandas. */
 export const menuCategories: MenuCategory[] = [
-  { id: 'hamburguesas', label: 'Hamburguesas' },
+  { id: 'entradas', label: 'Entradas' },
+  { id: 'perros-calientes', label: 'Perros Calientes' },
+  { id: 'clasicas', label: 'Clásicas' },
+  { id: 'adicionales', label: 'Adicionales' },
+  { id: 'dobles', label: 'Dobles' },
+  { id: 'triples', label: 'Triples' },
+  { id: 'alitas', label: 'Alitas' },
+  { id: 'menu-infantil', label: 'Menú infantil' },
   { id: 'combos', label: 'Combos' },
   { id: 'bebidas', label: 'Bebidas' },
-  { id: 'extras', label: 'Extras' },
-  { id: 'postres', label: 'Postres' },
 ];
 
 /** Categorías de insumos controlados en inventario. */

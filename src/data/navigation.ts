@@ -123,7 +123,7 @@ export const navSections: NavSection[] = [
         label: 'Catálogo',
         href: '/panel/productos',
         icon: ShoppingBag,
-        description: 'Menú del local: hamburguesas, combos y bebidas para comandas.',
+        description: 'Menú del local: entradas, clásicas, combos, bebidas y más.',
       },
       {
         label: 'Inventario',

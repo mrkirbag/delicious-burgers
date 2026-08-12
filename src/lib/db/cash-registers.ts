@@ -94,7 +94,6 @@ async function getPaymentTotals(cashRegisterId: string): Promise<{
       SELECT COALESCE(SUM(total), 0) AS total_sales, COUNT(*) AS paid_order_count
       FROM orders
       WHERE cash_register_id = ?
-        AND status = 'pagado'
     `,
     args: [cashRegisterId],
   });
@@ -134,7 +133,6 @@ async function getPaymentTotals(cashRegisterId: string): Promise<{
       FROM order_payments op
       INNER JOIN orders o ON o.id = op.order_id
       WHERE o.cash_register_id = ?
-        AND o.status = 'pagado'
     `,
     args: [cashRegisterId],
   });
@@ -238,7 +236,6 @@ export async function getPaymentMethodBreakdown(
       FROM order_payments op
       INNER JOIN orders o ON o.id = op.order_id
       WHERE o.cash_register_id = ?
-        AND o.status = 'pagado'
       GROUP BY op.payment_method, op.foreign_currency
       ORDER BY total_cop DESC
     `,
@@ -265,7 +262,7 @@ export async function getPaymentMethodBreakdownForDate(
   openedBy?: string,
 ): Promise<PaymentMethodBreakdown[]> {
   const conditions = [
-    "o.status = 'pagado'",
+    'o.cash_register_id IS NOT NULL',
     'o.updated_at >= ?',
     'o.updated_at <= ?',
   ];

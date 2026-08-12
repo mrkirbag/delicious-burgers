@@ -19,7 +19,7 @@ import { countActiveOrdersForTable, getTableById } from './tables';
 import { assertCashRegisterOpen } from './cash-registers';
 import { getExchangeRates } from './exchange-rates';
 import { createOrderPayments, listOrderPayments, listPaymentsForOrderIds } from './order-payments';
-import type { SqlArgs, SqlStatement } from './sql';
+import type { SqlArgs } from './sql';
 import type {
   Order,
   OrderItem,
@@ -31,7 +31,11 @@ import type {
   ForeignCurrency,
 } from './types';
 
-const ACTIVE_ORDER_STATUSES: OrderStatus[] = ['pendiente', 'cocina', 'listo', 'entregado'];
+/** Activa hasta entregar; incluye entregado sin cobrar (comandas del flujo anterior). */
+const ACTIVE_ORDER_SQL = `(
+  o.status IN ('pendiente', 'pagado', 'cocina', 'listo')
+  OR (o.status = 'entregado' AND o.cash_register_id IS NULL)
+)`;
 
 const ORDER_COLUMNS = `
   id, table_id, order_type, delivery_payment_timing, user_id, cash_register_id, status, total,
@@ -123,13 +127,13 @@ export async function getActiveOrderByTableId(tableId: string): Promise<Order | 
   const result = await db.execute({
     sql: `
       SELECT ${ORDER_COLUMNS}
-      FROM orders
-      WHERE table_id = ?
-        AND status IN (${ACTIVE_ORDER_STATUSES.map(() => '?').join(', ')})
-      ORDER BY created_at DESC
+      FROM orders o
+      WHERE o.table_id = ?
+        AND ${ACTIVE_ORDER_SQL}
+      ORDER BY o.created_at DESC
       LIMIT 1
     `,
-    args: [tableId, ...ACTIVE_ORDER_STATUSES],
+    args: [tableId],
   });
 
   if (result.rows.length === 0) return null;
@@ -550,8 +554,8 @@ export async function sendOrderToKitchen(orderId: string): Promise<Order> {
   }
 
   if (!canSendOrderToKitchen(order)) {
-    if (order.order_type === 'delivery' && order.delivery_payment_timing === 'prepaid') {
-      throw new Error('Los domicilios con pago anticipado deben cobrarse antes de enviarse a cocina');
+    if (order.status === 'pendiente') {
+      throw new Error('Debes cobrar y facturar la comanda antes de enviarla a cocina');
     }
 
     throw new Error('La comanda ya fue enviada a cocina o no está lista para enviarse');
@@ -575,13 +579,17 @@ export async function markOrderReady(orderId: string): Promise<Order> {
     throw new Error('La comanda no está en cocina');
   }
 
-  const autoDeliver = order.order_type === 'mesa';
+  // Un clic: listo = entregado. Mesa pasa a limpieza para liberarla después.
+  const updated = await updateOrderStatus(orderId, 'entregado');
 
-  if (autoDeliver) {
-    return updateOrderStatus(orderId, 'entregado');
+  if (order.table_id) {
+    await db.execute({
+      sql: `UPDATE tables SET status = 'limpieza' WHERE id = ? AND status = 'ocupada'`,
+      args: [order.table_id],
+    });
   }
 
-  return updateOrderStatus(orderId, 'listo');
+  return updated;
 }
 
 export async function markOrderDelivered(orderId: string): Promise<Order> {
@@ -591,18 +599,19 @@ export async function markOrderDelivered(orderId: string): Promise<Order> {
   }
 
   if (!canMarkOrderDelivered(order)) {
-    if (
-      order.order_type === 'delivery' &&
-      order.delivery_payment_timing === 'on_delivery' &&
-      order.status === 'listo'
-    ) {
-      throw new Error('Debes facturar y cobrar el domicilio antes de marcarlo como entregado');
-    }
-
     throw new Error('La comanda no está lista para entregar');
   }
 
-  return updateOrderStatus(orderId, 'entregado');
+  const updated = await updateOrderStatus(orderId, 'entregado');
+
+  if (order.table_id) {
+    await db.execute({
+      sql: `UPDATE tables SET status = 'limpieza' WHERE id = ? AND status = 'ocupada'`,
+      args: [order.table_id],
+    });
+  }
+
+  return updated;
 }
 
 export async function cancelOrder(orderId: string, userId: string): Promise<Order> {
@@ -717,21 +726,12 @@ export async function listActiveOrders(
   orderType?: OrderType,
 ): Promise<OrderListItem[]> {
   const statuses = status ? [status] : null;
-  const conditions: string[] = [
-    `o.status != 'cancelado'`,
-    `NOT (o.status = 'pagado' AND o.order_type = 'mesa')`,
-    `NOT (o.status = 'entregado' AND o.order_type = 'delivery')`,
-  ];
+  const conditions: string[] = [`o.status != 'cancelado'`, ACTIVE_ORDER_SQL];
   const args: SqlArgs = [];
 
   if (statuses) {
     conditions.push(`o.status IN (${statuses.map(() => '?').join(', ')})`);
     args.push(...statuses);
-  } else {
-    conditions.push(`(
-      o.status IN ('pendiente', 'cocina', 'listo', 'entregado')
-      OR (o.status = 'pagado' AND o.order_type = 'delivery')
-    )`);
   }
 
   if (orderType) {
@@ -778,16 +778,17 @@ export async function listOrdersPendingPayment(): Promise<OrderListItem[]> {
       LEFT JOIN tables t ON t.id = o.table_id
       INNER JOIN users u ON u.id = o.user_id
       WHERE (
-        (o.order_type = 'mesa' AND o.status = 'entregado')
+        (o.status = 'pendiente' AND (
+          SELECT COUNT(*)
+          FROM order_items oi
+          WHERE oi.order_id = o.id
+        ) > 0)
+        OR (o.order_type = 'mesa' AND o.status = 'entregado' AND o.cash_register_id IS NULL)
         OR (
           o.order_type = 'delivery'
           AND o.delivery_payment_timing = 'on_delivery'
           AND o.status = 'listo'
-        )
-        OR (
-          o.order_type = 'delivery'
-          AND o.delivery_payment_timing = 'prepaid'
-          AND o.status = 'pendiente'
+          AND o.cash_register_id IS NULL
         )
       )
       ORDER BY o.updated_at DESC
@@ -819,15 +820,14 @@ export async function payOrder(
   }
 
   if (!canPayOrder(order)) {
-    if (order.order_type === 'delivery' && order.delivery_payment_timing === 'on_delivery') {
-      throw new Error('Solo se pueden facturar domicilios listos para entregar');
-    }
+    throw new Error('Solo se pueden cobrar comandas pendientes');
+  }
 
-    if (order.order_type === 'delivery' && order.delivery_payment_timing === 'prepaid') {
-      throw new Error('Solo se pueden cobrar domicilios con pago anticipado antes de prepararlos');
-    }
+  const wasAlreadyDelivered = order.status === 'entregado';
 
-    throw new Error('Solo se pueden cobrar comandas entregadas');
+  const items = await listOrderItems(orderId);
+  if (items.length === 0) {
+    throw new Error('Agrega al menos un producto antes de cobrar');
   }
 
   if (payments.length === 0) {
@@ -897,38 +897,46 @@ export async function payOrder(
   const primaryPayment = payments[0];
   const now = new Date().toISOString();
 
-  const batchStatements: SqlStatement[] = [
-    {
-      sql: `
-        UPDATE orders
-        SET
-          status = 'pagado',
-          payment_method = ?,
-          foreign_currency = ?,
-          foreign_amount = ?,
-          cash_register_id = ?,
-          updated_at = ?
-        WHERE id = ?
-      `,
-      args: [
-        primaryPayment.payment_method,
-        primaryPayment.foreign_currency ?? null,
-        primaryPayment.foreign_amount ?? null,
-        cashRegisterId,
-        now,
-        orderId,
-      ],
-    },
-  ];
+  // Flujo nuevo: pendiente → cocina (cobrado + enviado). Legacy conserva estado.
+  let nextStatus: OrderStatus;
+  if (order.status === 'listo') {
+    nextStatus = 'listo';
+  } else if (order.status === 'entregado') {
+    nextStatus = 'pagado';
+  } else {
+    nextStatus = 'cocina';
+  }
 
-  if (order.table_id) {
-    batchStatements.push({
+  await db.execute({
+    sql: `
+      UPDATE orders
+      SET
+        status = ?,
+        payment_method = ?,
+        foreign_currency = ?,
+        foreign_amount = ?,
+        cash_register_id = ?,
+        updated_at = ?
+      WHERE id = ?
+    `,
+    args: [
+      nextStatus,
+      primaryPayment.payment_method,
+      primaryPayment.foreign_currency ?? null,
+      primaryPayment.foreign_amount ?? null,
+      cashRegisterId,
+      now,
+      orderId,
+    ],
+  });
+
+  // Legacy: mesa ya entregada → al cobrar pasa a limpieza
+  if (order.table_id && wasAlreadyDelivered) {
+    await db.execute({
       sql: `UPDATE tables SET status = 'limpieza' WHERE id = ? AND status = 'ocupada'`,
       args: [order.table_id],
     });
   }
-
-  await db.batch(batchStatements);
 
   await createOrderPayments(orderId, payments);
 
@@ -952,7 +960,8 @@ export type PaidOrderFilters = {
 };
 
 export async function listPaidOrders(filters: PaidOrderFilters = {}): Promise<InvoiceListItem[]> {
-  const conditions = ["o.status IN ('pagado', 'entregado')"];
+  // Paid orders keep cash_register_id even after status advances (cocina → listo → entregado).
+  const conditions = ['o.cash_register_id IS NOT NULL'];
   const args: SqlArgs = [];
 
   if (filters.dateFrom) {
@@ -1043,7 +1052,7 @@ export async function listPaidOrdersWithPayments(
 
 export async function getPaidOrderDetail(orderId: string) {
   const order = await getOrderById(orderId);
-  if (!order || order.status !== 'pagado') return null;
+  if (!order || !order.cash_register_id) return null;
 
   const items = await listOrderItems(orderId);
 

@@ -131,6 +131,7 @@ export default function LoginForm() {
       <footer className="login-form__footer">
         <p>{brand.name}</p>
         {brand.contact.phone && <span>{brand.contact.phone}</span>}
+        {brand.contact.instagram && <span>{brand.contact.instagram}</span>}
       </footer>
     </div>
   );
