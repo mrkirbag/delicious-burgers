@@ -1,18 +1,21 @@
 import { db } from './client';
 import { runMigrations } from './migrate';
 
-let schemaReady = false;
+/** Subir este número al agregar migraciones para reaplicarlas en un proceso que ya tenía el esquema en memoria. */
+const SCHEMA_GENERATION = 2;
+
+let appliedGeneration = 0;
 let schemaCheckPromise: Promise<void> | null = null;
 
 async function checkAndMigrate(): Promise<void> {
-  if (schemaReady) return;
+  if (appliedGeneration >= SCHEMA_GENERATION) return;
 
   await runMigrations(db);
-  schemaReady = true;
+  appliedGeneration = SCHEMA_GENERATION;
 }
 
 export function ensureMigrations(): Promise<void> {
-  if (schemaReady) {
+  if (appliedGeneration >= SCHEMA_GENERATION) {
     return Promise.resolve();
   }
 
@@ -29,6 +32,6 @@ export function ensureMigrations(): Promise<void> {
 
 /** Solo para tests: permite volver a ejecutar migraciones. */
 export function resetSchemaState(): void {
-  schemaReady = false;
+  appliedGeneration = 0;
   schemaCheckPromise = null;
 }

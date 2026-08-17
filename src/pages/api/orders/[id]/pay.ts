@@ -5,6 +5,7 @@ import { getActiveCashRegister } from '@/lib/db/cash-registers';
 import { getExchangeRates } from '@/lib/db/exchange-rates';
 import { getOrderDetail, payOrder } from '@/lib/db/orders';
 import type { ForeignCurrency, OrderPaymentInput, UserRole } from '@/lib/db/types';
+import { payableForeignAmount } from '@/lib/payments/settlement';
 import {
   isBsPaymentMethod,
   isCopPaymentMethod,
@@ -152,13 +153,13 @@ export const POST: APIRoute = async (context) => {
         payment = {
           ...payment,
           foreign_currency: 'bs',
-          foreign_amount: detail.order.total / rates.bs_rate,
+          foreign_amount: payableForeignAmount(detail.order.total, rates.bs_rate),
         };
       } else {
         payment = {
           ...payment,
           foreign_currency: payment.foreign_currency ?? 'usd',
-          foreign_amount: detail.order.total / rates.usd_rate,
+          foreign_amount: payableForeignAmount(detail.order.total, rates.usd_rate),
         };
       }
     } else if (payment.payment_method === 'divisas' && payment.foreign_currency) {
@@ -167,7 +168,7 @@ export const POST: APIRoute = async (context) => {
         payment.foreign_currency === 'usd' ? rates.usd_rate : rates.bs_rate;
       payment = {
         ...payment,
-        foreign_amount: detail.order.total / rate,
+        foreign_amount: payableForeignAmount(detail.order.total, rate),
       };
     }
 

@@ -409,6 +409,11 @@ export async function runMigrations(dbClient?: Client): Promise<void> {
   await migrateDeliveryPaymentTiming(db);
   await migratePaymentMethods(db);
 
+  if (await tableExists(db, 'order_items') && !(await columnExists(db, 'order_items', 'extras'))) {
+    await db.execute('ALTER TABLE order_items ADD COLUMN extras TEXT');
+    console.log('✓ order_items.extras');
+  }
+
   if (!(await columnExists(db, 'products', 'inventory_product_id'))) {
     await db.execute(`ALTER TABLE products ADD COLUMN inventory_product_id TEXT REFERENCES products(id)`);
     console.log('✓ products.inventory_product_id');

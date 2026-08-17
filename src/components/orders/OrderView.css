@@ -327,6 +327,18 @@
   color: var(--color-text-muted);
 }
 
+.order-view__item-extras {
+  margin: 0 0 0.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.order-view__item-extras li {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
 .order-view__item-unit {
   margin: 0;
   font-size: 0.75rem;

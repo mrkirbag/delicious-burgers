@@ -2,6 +2,7 @@ import { brand } from '@/data/brand';
 import type { OrderItemWithProduct } from '@/lib/db/orders';
 import type { Order, OrderPayment } from '@/lib/db/types';
 import { formatOrderLabel } from '@/lib/orders/display';
+import { formatExtraLine } from '@/lib/orders/item-extras';
 import { getItemPreferenceLabel } from '@/lib/orders/item-preferences';
 import { formatOrderPaymentLine } from '@/lib/payments/display';
 import { formatCop } from '@/lib/utils/currency';
@@ -80,6 +81,11 @@ export default function SaleTicket({
                 <span>{formatCop(item.quantity * item.price_at_sale)}</span>
               </div>
               {preferences && <p className="sale-ticket__item-notes">* {preferences}</p>}
+              {item.extras?.map((extra) => (
+                <p key={extra.product_id} className="sale-ticket__item-notes">
+                  {formatExtraLine(extra)}
+                </p>
+              ))}
             </div>
           );
         })}

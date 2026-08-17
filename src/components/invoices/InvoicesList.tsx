@@ -12,6 +12,7 @@ import {
   type InvoiceFilters,
 } from '@/lib/hooks/queries/useInvoices';
 import { formatOrderLabel } from '@/lib/orders/display';
+import { formatExtraLine } from '@/lib/orders/item-extras';
 import { getItemPreferenceLabel } from '@/lib/orders/item-preferences';
 import { getPaymentLabel } from '@/lib/payments/methods';
 import { withAppProviders } from '@/lib/providers/withAppProviders';
@@ -249,6 +250,12 @@ function InvoicesList() {
                       {preferences && (
                         <em className="invoices-list__item-note"> ({preferences})</em>
                       )}
+                      {item.extras?.map((extra) => (
+                        <em key={extra.product_id} className="invoices-list__item-note">
+                          {' '}
+                          {formatExtraLine(extra)}
+                        </em>
+                      ))}
                     </span>
                     <span>{formatPrice(item.quantity * item.price_at_sale)}</span>
                   </li>
@@ -304,11 +311,18 @@ function InvoicesList() {
                 <p>Cajero: {detail.cashier_username}</p>
                 <div className="invoices-list__ticket-divider" />
                 {detail.items.map((item) => (
-                  <div key={item.id} className="invoices-list__ticket-line">
-                    <span>
-                      {item.quantity} {item.product_name}
-                    </span>
-                    <span>{formatPrice(item.quantity * item.price_at_sale)}</span>
+                  <div key={item.id}>
+                    <div className="invoices-list__ticket-line">
+                      <span>
+                        {item.quantity} {item.product_name}
+                      </span>
+                      <span>{formatPrice(item.quantity * item.price_at_sale)}</span>
+                    </div>
+                    {item.extras?.map((extra) => (
+                      <p key={extra.product_id} className="invoices-list__item-note">
+                        {formatExtraLine(extra)}
+                      </p>
+                    ))}
                   </div>
                 ))}
                 <div className="invoices-list__ticket-divider" />

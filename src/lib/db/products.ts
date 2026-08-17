@@ -298,6 +298,23 @@ export async function deleteCatalogProduct(id: string): Promise<boolean> {
   return result.rowsAffected > 0;
 }
 
+/** Productos activos del menú por IDs (para adicionales de comanda). */
+export async function getActiveMenuProductsByIds(ids: string[]): Promise<Product[]> {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0) return [];
+
+  const placeholders = uniqueIds.map(() => '?').join(', ');
+  const result = await db.execute({
+    sql: `SELECT id, name, price, category, requires_inventory, active,
+                 inventory_product_id, inventory_units_per_sale
+          FROM products
+          WHERE id IN (${placeholders}) AND requires_inventory = 0 AND active = 1`,
+    args: uniqueIds,
+  });
+
+  return result.rows.map((row) => mapMenuProduct(row as Record<string, unknown>));
+}
+
 /** Producto activo del menú por ID (para comandas). */
 export async function getActiveMenuProductById(id: string): Promise<Product | null> {
   const result = await db.execute({

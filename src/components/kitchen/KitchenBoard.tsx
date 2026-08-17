@@ -7,6 +7,7 @@ import { parseError } from '@/lib/api/parseError';
 import { openDeliveryReadyWhatsApp } from '@/lib/delivery/whatsapp';
 import { useKitchenOrders } from '@/lib/hooks/queries/useKitchenOrders';
 import { formatOrderLabel } from '@/lib/orders/display';
+import { formatExtraLine } from '@/lib/orders/item-extras';
 import { getItemPreferenceLabel } from '@/lib/orders/item-preferences';
 import { queryKeys } from '@/lib/query/keys';
 import { withAppProviders } from '@/lib/providers/withAppProviders';
@@ -104,6 +105,11 @@ function KitchenBoard() {
                         {preferences && (
                           <p className="kitchen-board__item-notes">{preferences}</p>
                         )}
+                        {item.extras?.map((extra) => (
+                          <p key={extra.product_id} className="kitchen-board__item-notes">
+                            {formatExtraLine(extra)}
+                          </p>
+                        ))}
                       </li>
                     );
                   })}

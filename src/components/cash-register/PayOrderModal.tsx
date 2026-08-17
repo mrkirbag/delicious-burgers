@@ -15,9 +15,9 @@ import {
   isUsdPaymentMethod,
   PAYMENT_OPTION_GROUPS,
 } from '@/lib/payments/methods';
+import { payableAmountForMethod, payableForeignAmount, settlePaymentLines } from '@/lib/payments/settlement';
 import { useModalBodyLock, usePreventNumberInputWheel } from '@/lib/ui/modal-utils';
 import {
-  convertBsToCop,
   convertUsdToCop,
   formatBs,
   formatCop,
@@ -46,61 +46,26 @@ function createLineId(): string {
   return `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function computeLineCop(line: PaymentLine, rates: ExchangeRates | null): number {
-  const amount = Number(line.amount);
-  if (!Number.isFinite(amount) || amount <= 0) return 0;
-
-  if (isUsdPaymentMethod(line.method)) {
-    if (!rates) return 0;
-    return convertUsdToCop(amount, rates);
-  }
-
-  if (isBsPaymentMethod(line.method)) {
-    if (!rates) return 0;
-    return convertBsToCop(amount, rates);
-  }
-
-  return amount;
+function formatCopWithoutSymbol(value: number): string {
+  return `${new Intl.NumberFormat('es-CO', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value)} COP`;
 }
 
-function toPaymentInput(
-  line: PaymentLine,
+function remainingExcludingLine(
+  lines: PaymentLine[],
+  lineId: string,
+  orderTotal: number,
   rates: ExchangeRates | null,
-): OrderPaymentInput {
-  const amount = Number(line.amount);
-
-  if (isUsdPaymentMethod(line.method)) {
-    if (!rates) {
-      throw new Error('Las tasas de cambio son necesarias para pagos en dólares');
-    }
-
-    return {
-      payment_method: line.method,
-      amount_cop: convertUsdToCop(amount, rates),
-      foreign_currency: 'usd',
-      foreign_amount: amount,
-    };
-  }
-
-  if (isBsPaymentMethod(line.method)) {
-    if (!rates) {
-      throw new Error('Las tasas de cambio son necesarias para pagos en bolívares');
-    }
-
-    return {
-      payment_method: line.method,
-      amount_cop: convertBsToCop(amount, rates),
-      foreign_currency: 'bs',
-      foreign_amount: amount,
-    };
-  }
-
-  return {
-    payment_method: line.method,
-    amount_cop: amount,
-    foreign_currency: null,
-    foreign_amount: null,
-  };
+): number {
+  return settlePaymentLines(
+    lines
+      .filter((line) => line.id !== lineId)
+      .map((line) => ({ method: line.method, amount: Number(line.amount) })),
+    orderTotal,
+    rates,
+  ).remainingCop;
 }
 
 function getLineChange(line: PaymentLine): number {
@@ -164,12 +129,18 @@ export default function PayOrderModal({
     };
   }, [order.id]);
 
-  const paidCop = useMemo(
-    () => lines.reduce((sum, line) => sum + computeLineCop(line, exchangeRates), 0),
-    [lines, exchangeRates],
+  const settlement = useMemo(
+    () =>
+      settlePaymentLines(
+        lines.map((line) => ({ method: line.method, amount: Number(line.amount) })),
+        order.total,
+        exchangeRates,
+      ),
+    [lines, order.total, exchangeRates],
   );
 
-  const remainingCop = order.total - paidCop;
+  const paidCop = settlement.paidCop;
+  const remainingCop = settlement.remainingCop;
   const isBalanced = Math.abs(remainingCop) < 0.5;
 
   const changeSummary = useMemo(() => {
@@ -187,8 +158,11 @@ export default function PayOrderModal({
       }
     }
 
-    return { copChange, usdChange };
-  }, [lines]);
+    const usdChangeCop =
+      usdChange > 0 && exchangeRates ? convertUsdToCop(usdChange, exchangeRates) : 0;
+
+    return { copChange, usdChange, usdChangeCop };
+  }, [lines, exchangeRates]);
 
   const needsExchangeRates = lines.some(
     (line) => isUsdPaymentMethod(line.method) || isBsPaymentMethod(line.method),
@@ -203,13 +177,8 @@ export default function PayOrderModal({
       return 'Pendiente de cobro';
     }
 
-    try {
-      const payments = lines.map((line) => toPaymentInput(line, exchangeRates));
-      return formatOrderPaymentPreview(payments);
-    } catch {
-      return 'Pendiente de cobro';
-    }
-  }, [lines, exchangeRates, isBalanced, needsExchangeRates]);
+    return formatOrderPaymentPreview(settlement.payments);
+  }, [settlement.payments, isBalanced, needsExchangeRates, exchangeRates]);
 
   function updateLine(id: string, patch: Partial<PaymentLine>) {
     setLines((prev) =>
@@ -217,8 +186,18 @@ export default function PayOrderModal({
         if (line.id !== id) return line;
 
         const next = { ...line, ...patch };
-        if (patch.method && !isCashPaymentMethod(patch.method)) {
-          next.received = '';
+        if (patch.method) {
+          if (!isCashPaymentMethod(patch.method)) {
+            next.received = '';
+          }
+
+          if (patch.amount === undefined) {
+            next.amount = payableAmountForMethod(
+              patch.method,
+              remainingExcludingLine(prev, id, order.total, exchangeRates),
+              exchangeRates,
+            );
+          }
         }
 
         return next;
@@ -233,31 +212,20 @@ export default function PayOrderModal({
       {
         id: createLineId(),
         method: 'efectivo',
-        amount: remainingCop > 0 ? String(Math.max(0, Math.round(remainingCop))) : '',
+        amount: payableAmountForMethod('efectivo', remainingCop, exchangeRates),
         received: '',
       },
     ]);
   }
 
   function fillRemaining(id: string) {
-    if (remainingCop <= 0) return;
-
     const line = lines.find((item) => item.id === id);
     if (!line) return;
 
-    if (isUsdPaymentMethod(line.method)) {
-      if (!exchangeRates) return;
-      updateLine(id, { amount: (remainingCop / exchangeRates.usd_rate).toFixed(2) });
-      return;
-    }
+    const remaining = remainingExcludingLine(lines, id, order.total, exchangeRates);
+    if (remaining <= 0) return;
 
-    if (isBsPaymentMethod(line.method)) {
-      if (!exchangeRates) return;
-      updateLine(id, { amount: (remainingCop / exchangeRates.bs_rate).toFixed(2) });
-      return;
-    }
-
-    updateLine(id, { amount: String(Math.max(0, Math.round(remainingCop))) });
+    updateLine(id, { amount: payableAmountForMethod(line.method, remaining, exchangeRates) });
   }
 
   function removeLine(id: string) {
@@ -277,8 +245,6 @@ export default function PayOrderModal({
       return;
     }
 
-    const payments: OrderPaymentInput[] = [];
-
     for (const line of lines) {
       const amount = Number(line.amount);
       if (!Number.isFinite(amount) || amount <= 0) {
@@ -293,11 +259,9 @@ export default function PayOrderModal({
           return;
         }
       }
-
-      payments.push(toPaymentInput(line, exchangeRates));
     }
 
-    onConfirm(payments);
+    onConfirm(settlement.payments);
   }
 
   return (
@@ -369,7 +333,14 @@ export default function PayOrderModal({
                 <strong>
                   {changeSummary.copChange > 0 && formatCop(changeSummary.copChange)}
                   {changeSummary.copChange > 0 && changeSummary.usdChange > 0 && ' · '}
-                  {changeSummary.usdChange > 0 && formatUsd(changeSummary.usdChange)}
+                  {changeSummary.usdChange > 0 && (
+                    <>
+                      {formatUsd(changeSummary.usdChange)}
+                      {changeSummary.usdChangeCop > 0 && (
+                        <> ({formatCopWithoutSymbol(changeSummary.usdChangeCop)})</>
+                      )}
+                    </>
+                  )}
                 </strong>
               </div>
             </div>
@@ -377,8 +348,8 @@ export default function PayOrderModal({
 
           {exchangeRates && (
             <p className="pay-modal__rates">
-              Referencia: {formatUsd(order.total / exchangeRates.usd_rate)} ·{' '}
-              {formatBs(order.total / exchangeRates.bs_rate)}
+              Referencia al céntimo: {formatUsd(payableForeignAmount(order.total, exchangeRates.usd_rate))} ·{' '}
+              {formatBs(payableForeignAmount(order.total, exchangeRates.bs_rate))}
             </p>
           )}
 
@@ -417,14 +388,21 @@ export default function PayOrderModal({
           )}
 
           <div className="pay-modal__lines">
-            {lines.map((line) => {
-              const copEquivalent = computeLineCop(line, exchangeRates);
+            {lines.map((line, index) => {
+              const tender = settlement.tenders[index];
+              const copEquivalent = tender?.amountCop ?? 0;
               const isUsd = isUsdPaymentMethod(line.method);
               const isBs = isBsPaymentMethod(line.method);
               const isForeign = isUsd || isBs;
               const isCash = isCashPaymentMethod(line.method);
               const lineChange = getLineChange(line);
               const unit = getPaymentAmountUnit(line.method);
+              const lineRemaining = remainingExcludingLine(
+                lines,
+                line.id,
+                order.total,
+                exchangeRates,
+              );
 
               return (
                 <div key={line.id} className="pay-modal__line">
@@ -435,7 +413,6 @@ export default function PayOrderModal({
                       onChange={(e) =>
                         updateLine(line.id, {
                           method: e.target.value as ActivePaymentMethod,
-                          amount: '',
                           received: '',
                         })
                       }
@@ -479,7 +456,7 @@ export default function PayOrderModal({
                       type="button"
                       className="pay-modal__fill"
                       onClick={() => fillRemaining(line.id)}
-                      disabled={remainingCop <= 0.5}
+                      disabled={lineRemaining <= 0.5}
                     >
                       Restante
                     </button>
@@ -501,13 +478,20 @@ export default function PayOrderModal({
                         <p className="pay-modal__cop-box-rate">
                           Tasa: 1 {isUsd ? 'USD' : 'BS'} ={' '}
                           {formatCop(isUsd ? exchangeRates.usd_rate : exchangeRates.bs_rate)}
-                          {remainingCop > 0.5 && (
+                          {tender?.snappedToRemaining && (
+                            <> · Ajustado al céntimo para cerrar la cuenta</>
+                          )}
+                          {remainingCop > 0.5 && !tender?.snappedToRemaining && (
                             <>
                               {' '}
                               · Restante:{' '}
                               {isUsd
-                                ? formatUsd(remainingCop / exchangeRates.usd_rate)
-                                : formatBs(remainingCop / exchangeRates.bs_rate)}{' '}
+                                ? formatUsd(
+                                    payableForeignAmount(remainingCop, exchangeRates.usd_rate),
+                                  )
+                                : formatBs(
+                                    payableForeignAmount(remainingCop, exchangeRates.bs_rate),
+                                  )}{' '}
                               (≈ {formatCop(remainingCop)})
                             </>
                           )}
@@ -542,9 +526,16 @@ export default function PayOrderModal({
                       {lineChange > 0 && (
                         <p className="pay-modal__line-change">
                           Vuelto:{' '}
-                          {line.method === 'usd_efectivo'
-                            ? formatUsd(lineChange)
-                            : formatCop(lineChange)}
+                          {line.method === 'usd_efectivo' ? (
+                            <>
+                              {formatUsd(lineChange)}
+                              {exchangeRates && (
+                                <> ({formatCopWithoutSymbol(convertUsdToCop(lineChange, exchangeRates))})</>
+                              )}
+                            </>
+                          ) : (
+                            formatCop(lineChange)
+                          )}
                         </p>
                       )}
                     </div>

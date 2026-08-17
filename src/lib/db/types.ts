@@ -117,12 +117,19 @@ export type Order = {
   updated_at: string;
 };
 
+export type OrderItemExtra = {
+  product_id: string;
+  name: string;
+  price: number;
+};
+
 export type OrderItem = {
   id: string;
   order_id: string;
   product_id: string;
   quantity: number;
   notes: string | null;
+  extras: OrderItemExtra[];
   price_at_sale: number;
 };
 

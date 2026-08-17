@@ -29,9 +29,20 @@ import { useExchangeRates } from '@/lib/hooks/queries/useExchangeRates';
 import { useOrderDetail } from '@/lib/hooks/queries/useOrderDetail';
 import { formatOrderLabel } from '@/lib/orders/display';
 import {
+  ADICIONALES_CATEGORY,
+  formatExtraLine,
+  productUsesAdicionales,
+} from '@/lib/orders/item-extras';
+import {
+  DEFAULT_ITEM_CUT_STYLE,
   DEFAULT_ITEM_PREFERENCE,
+  ITEM_CUT_STYLES,
+  ITEM_NOTE_OPTIONS,
+  buildItemNotes,
   getItemPreferenceLabel,
+  productUsesCutStyle,
   productUsesPreferences,
+  type ItemCutStyle,
 } from '@/lib/orders/item-preferences';
 import { formatCop } from '@/lib/utils/currency';
 import {
@@ -57,24 +68,14 @@ type OrderViewProps = {
 
 type CategoryFilter = string | 'all';
 
-const ITEM_NOTE_OPTIONS = [
-  DEFAULT_ITEM_PREFERENCE,
-  'Sin vegetales',
-  'Sin cebolla',
-  'Sin lechuga',
-  'Sin tomate',
-  'Sin pepinillos',
-  'Sin salsa',
-  'Sin queso',
-  'Sin tocineta',
-] as const;
-
 const DEFAULT_ITEM_NOTE = DEFAULT_ITEM_PREFERENCE;
 
 type AddItemForm = {
   product: Product;
   quantity: string;
+  cutStyle: ItemCutStyle;
   noteOptions: string[];
+  adicionalIds: string[];
 };
 
 type ActingAction = 'add-item' | 'send-kitchen' | 'cancel' | 'deliver' | 'mark-ready';
@@ -97,6 +98,14 @@ function toggleItemNoteOption(current: string[], option: string): string[] {
   return next.length === 0 ? [DEFAULT_ITEM_NOTE] : next;
 }
 
+function selectedAdicionalesTotal(products: Product[], ids: string[]): number {
+  const selected = new Set(ids);
+  return products.reduce(
+    (total, product) => (selected.has(product.id) ? total + product.price : total),
+    0,
+  );
+}
+
 function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
   const queryClient = useQueryClient();
   const { rates } = useExchangeRates();
@@ -113,6 +122,11 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
   const [saleTicketOpen, setSaleTicketOpen] = useState(false);
 
   const isEditable = data?.order.status === 'pendiente';
+
+  const adicionalProducts = useMemo(
+    () => products.filter((product) => product.category === ADICIONALES_CATEGORY),
+    [products],
+  );
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -139,7 +153,12 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
   };
 
   const addItemMutation = useMutation({
-    mutationFn: async (payload: { product_id: string; quantity: number; notes?: string }) => {
+    mutationFn: async (payload: {
+      product_id: string;
+      quantity: number;
+      notes?: string;
+      adicional_ids?: string[];
+    }) => {
       const response = await fetch(`/api/orders/${orderId}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -296,6 +315,13 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
     }
 
     const showNoteOptions = productUsesPreferences(addForm.product.category);
+    const showCutStyle = productUsesCutStyle(addForm.product.category);
+    const showAdicionales = productUsesAdicionales(addForm.product.category);
+
+    if (showCutStyle && !addForm.cutStyle) {
+      setActionError('Selecciona si va enteras o picadas');
+      return;
+    }
 
     if (showNoteOptions && addForm.noteOptions.length === 0) {
       setActionError('Selecciona al menos una preferencia');
@@ -305,7 +331,10 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
     addItemMutation.mutate({
       product_id: addForm.product.id,
       quantity,
-      notes: showNoteOptions ? addForm.noteOptions.join(', ') : undefined,
+      notes: showNoteOptions
+        ? buildItemNotes(addForm.cutStyle, addForm.noteOptions)
+        : undefined,
+      adicional_ids: showAdicionales ? addForm.adicionalIds : undefined,
     });
   }
 
@@ -431,7 +460,9 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
                       setAddForm({
                         product,
                         quantity: '1',
+                        cutStyle: DEFAULT_ITEM_CUT_STYLE,
                         noteOptions: [DEFAULT_ITEM_NOTE],
+                        adicionalIds: [],
                       });
                       setActionError('');
                     }}
@@ -465,6 +496,7 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
               {items.map((item) => {
                 const isItemActing = actingItemId === item.id;
                 const preferences = getItemPreferenceLabel(item);
+                const extras = item.extras ?? [];
 
                 return (
                   <li key={item.id} className="order-view__item">
@@ -472,6 +504,13 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
                       <div>
                         <p className="order-view__item-name">{item.product_name}</p>
                         {preferences && <p className="order-view__item-notes">{preferences}</p>}
+                        {extras.length > 0 && (
+                          <ul className="order-view__item-extras">
+                            {extras.map((extra) => (
+                              <li key={extra.product_id}>{formatExtraLine(extra)}</li>
+                            ))}
+                          </ul>
+                        )}
                         <p className="order-view__item-unit">
                           <MultiCurrencyPrice
                             amountCop={item.price_at_sale}
@@ -717,7 +756,10 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
             <>
               {addForm.product.name}
               <p>
-                <MultiCurrencyPrice amountCop={addForm.product.price} rates={rates} />
+                <MultiCurrencyPrice
+                  amountCop={addForm.product.price + selectedAdicionalesTotal(adicionalProducts, addForm.adicionalIds)}
+                  rates={rates}
+                />
               </p>
             </>
           ) : undefined
@@ -741,6 +783,35 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
                 autoFocus
               />
             </label>
+
+            {productUsesCutStyle(addForm.product.category) && (
+              <fieldset className="order-view__field order-view__note-options">
+                <legend>Corte</legend>
+                <div
+                  className="order-view__note-options-grid"
+                  role="radiogroup"
+                  aria-label="Enteras o picadas"
+                >
+                  {ITEM_CUT_STYLES.map((option) => {
+                    const selected = addForm.cutStyle === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        role="radio"
+                        className={`order-view__note-option${selected ? ' order-view__note-option--selected' : ''}`}
+                        aria-checked={selected}
+                        onClick={() =>
+                          setAddForm((prev) => (prev ? { ...prev, cutStyle: option } : prev))
+                        }
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
 
             {productUsesPreferences(addForm.product.category) && (
               <fieldset className="order-view__field order-view__note-options">
@@ -766,6 +837,39 @@ function OrderView({ orderId, canDeliver = false }: OrderViewProps) {
                         }
                       >
                         {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+
+            {productUsesAdicionales(addForm.product.category) && adicionalProducts.length > 0 && (
+              <fieldset className="order-view__field order-view__note-options">
+                <legend>Adicionales</legend>
+                <div className="order-view__note-options-grid" role="group" aria-label="Adicionales del producto">
+                  {adicionalProducts.map((extra) => {
+                    const selected = addForm.adicionalIds.includes(extra.id);
+                    return (
+                      <button
+                        key={extra.id}
+                        type="button"
+                        className={`order-view__note-option${selected ? ' order-view__note-option--selected' : ''}`}
+                        aria-pressed={selected}
+                        onClick={() =>
+                          setAddForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  adicionalIds: prev.adicionalIds.includes(extra.id)
+                                    ? prev.adicionalIds.filter((id) => id !== extra.id)
+                                    : [...prev.adicionalIds, extra.id],
+                                }
+                              : prev,
+                          )
+                        }
+                      >
+                        {extra.name} · {formatPrice(extra.price)}
                       </button>
                     );
                   })}

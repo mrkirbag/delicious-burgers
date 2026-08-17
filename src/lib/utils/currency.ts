@@ -28,6 +28,17 @@ export function formatBs(value: number): string {
   }).format(value);
 }
 
+/** Rounds to the nearest cent. Cash and transfers cannot be paid with repeating decimals. */
+export function roundToCents(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value * 100) / 100;
+}
+
+export function roundCop(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value);
+}
+
 export function convertCopToUsd(amountCop: number, rates: Pick<ExchangeRates, 'usd_rate'>): number {
   if (rates.usd_rate <= 0) return 0;
   return amountCop / rates.usd_rate;
@@ -40,12 +51,12 @@ export function convertCopToBs(amountCop: number, rates: Pick<ExchangeRates, 'bs
 
 export function convertUsdToCop(amountUsd: number, rates: Pick<ExchangeRates, 'usd_rate'>): number {
   if (rates.usd_rate <= 0) return 0;
-  return amountUsd * rates.usd_rate;
+  return roundCop(amountUsd * rates.usd_rate);
 }
 
 export function convertBsToCop(amountBs: number, rates: Pick<ExchangeRates, 'bs_rate'>): number {
   if (rates.bs_rate <= 0) return 0;
-  return amountBs * rates.bs_rate;
+  return roundCop(amountBs * rates.bs_rate);
 }
 
 export function formatForeignAmount(

@@ -2,6 +2,7 @@ import { brand } from '@/data/brand';
 import type { OrderItemWithProduct } from '@/lib/db/orders';
 import type { Order } from '@/lib/db/types';
 import { formatOrderLabel } from '@/lib/orders/display';
+import { formatExtraLine } from '@/lib/orders/item-extras';
 import { getItemPreferenceLabel } from '@/lib/orders/item-preferences';
 
 import './KitchenTicket.css';
@@ -79,6 +80,11 @@ export default function KitchenTicket({
                 <span className="kitchen-ticket__name">{item.product_name}</span>
               </p>
               {preferences && <p className="kitchen-ticket__item-notes">* {preferences}</p>}
+              {item.extras?.map((extra) => (
+                <p key={extra.product_id} className="kitchen-ticket__item-notes">
+                  {formatExtraLine(extra)}
+                </p>
+              ))}
             </div>
           );
         })}

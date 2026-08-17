@@ -6,7 +6,15 @@ import {
   type DeliveryPaymentTiming,
 } from '@/lib/orders/delivery-flow';
 import { resolveInventoryDeduction, type InventoryDeduction } from '@/lib/inventory/menu-inventory';
+import {
+  ADICIONALES_CATEGORY,
+  parseOrderItemExtras,
+  productUsesAdicionales,
+  sumExtrasPrice,
+} from '@/lib/orders/item-extras';
+import { isForeignAmountWithinRate, foreignRoundingToleranceCop } from '@/lib/payments/settlement';
 import { createId } from '@/lib/utils/id';
+import { roundToCents } from '@/lib/utils/currency';
 
 import { db } from './client';
 import {
@@ -14,7 +22,11 @@ import {
   getInventoryItemById,
   restoreInventoryForOrder,
 } from './inventory';
-import { getActiveMenuProductById, getMenuProductInventoryLink } from './products';
+import {
+  getActiveMenuProductById,
+  getActiveMenuProductsByIds,
+  getMenuProductInventoryLink,
+} from './products';
 import { countActiveOrdersForTable, getTableById } from './tables';
 import { assertCashRegisterOpen } from './cash-registers';
 import { getExchangeRates } from './exchange-rates';
@@ -23,6 +35,7 @@ import type { SqlArgs } from './sql';
 import type {
   Order,
   OrderItem,
+  OrderItemExtra,
   OrderPayment,
   OrderPaymentInput,
   OrderStatus,
@@ -102,10 +115,123 @@ function mapOrderItem(row: Record<string, unknown>): OrderItemWithProduct {
     product_id: String(row.product_id),
     quantity: Number(row.quantity),
     notes: row.notes ? String(row.notes) : null,
+    extras: parseOrderItemExtras(row.extras),
     price_at_sale: Number(row.price_at_sale),
     product_name: String(row.product_name),
     product_category: String(row.product_category),
   };
+}
+
+function mergeInventoryDeductions(deductions: InventoryDeduction[]): InventoryDeduction[] {
+  const byProduct = new Map<string, number>();
+
+  for (const deduction of deductions) {
+    byProduct.set(deduction.productId, (byProduct.get(deduction.productId) ?? 0) + deduction.quantity);
+  }
+
+  return [...byProduct.entries()].map(([productId, quantity]) => ({ productId, quantity }));
+}
+
+function inventoryDelta(
+  previous: InventoryDeduction[],
+  next: InventoryDeduction[],
+): { deduct: InventoryDeduction[]; restore: InventoryDeduction[] } {
+  const previousByProduct = new Map(previous.map((item) => [item.productId, item.quantity]));
+  const nextByProduct = new Map(next.map((item) => [item.productId, item.quantity]));
+  const productIds = new Set([...previousByProduct.keys(), ...nextByProduct.keys()]);
+  const deduct: InventoryDeduction[] = [];
+  const restore: InventoryDeduction[] = [];
+
+  for (const productId of productIds) {
+    const delta = (nextByProduct.get(productId) ?? 0) - (previousByProduct.get(productId) ?? 0);
+    if (delta > 0) deduct.push({ productId, quantity: delta });
+    if (delta < 0) restore.push({ productId, quantity: -delta });
+  }
+
+  return { deduct, restore };
+}
+
+async function resolveDeductionsForStoredItem(
+  item: Pick<OrderItemWithProduct, 'product_id' | 'extras'>,
+  quantity: number,
+): Promise<InventoryDeduction[]> {
+  const deductions: InventoryDeduction[] = [];
+  const mainLink = await getMenuProductInventoryLink(item.product_id);
+
+  if (mainLink) {
+    const mainDeduction = resolveInventoryDeduction(item.product_id, mainLink, quantity);
+    if (mainDeduction) deductions.push(mainDeduction);
+  }
+
+  for (const extra of item.extras) {
+    const extraLink = await getMenuProductInventoryLink(extra.product_id);
+    if (!extraLink) continue;
+
+    const extraDeduction = resolveInventoryDeduction(extra.product_id, extraLink, quantity);
+    if (extraDeduction) deductions.push(extraDeduction);
+  }
+
+  return mergeInventoryDeductions(deductions);
+}
+
+async function resolveExtrasFromIds(ids: string[]): Promise<OrderItemExtra[]> {
+  const uniqueIds = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) return [];
+
+  const products = await getActiveMenuProductsByIds(uniqueIds);
+  if (products.length !== uniqueIds.length) {
+    throw new Error('Uno o más adicionales no están disponibles');
+  }
+
+  const invalid = products.find((product) => product.category !== ADICIONALES_CATEGORY);
+  if (invalid) {
+    throw new Error('Solo se pueden agregar productos de la categoría Adicionales');
+  }
+
+  const byId = new Map(products.map((product) => [product.id, product]));
+  return uniqueIds.map((id) => {
+    const product = byId.get(id);
+    if (!product) {
+      throw new Error('Uno o más adicionales no están disponibles');
+    }
+
+    return {
+      product_id: product.id,
+      name: product.name,
+      price: product.price,
+    };
+  });
+}
+
+async function deductInventoryList(
+  deductions: InventoryDeduction[],
+  userId: string,
+  orderId: string,
+): Promise<void> {
+  const applied: InventoryDeduction[] = [];
+
+  try {
+    for (const deduction of deductions) {
+      await validateInventoryDeduction(deduction);
+      await deductInventoryForOrder(deduction.productId, deduction.quantity, userId, orderId);
+      applied.push(deduction);
+    }
+  } catch (error) {
+    for (const deduction of applied.reverse()) {
+      await restoreInventoryForOrder(deduction.productId, deduction.quantity, userId, orderId);
+    }
+    throw error;
+  }
+}
+
+async function restoreInventoryList(
+  deductions: InventoryDeduction[],
+  userId: string,
+  orderId: string,
+): Promise<void> {
+  for (const deduction of deductions) {
+    await restoreInventoryForOrder(deduction.productId, deduction.quantity, userId, orderId);
+  }
 }
 
 export async function getOrderById(id: string): Promise<Order | null> {
@@ -149,6 +275,7 @@ export async function listOrderItems(orderId: string): Promise<OrderItemWithProd
         oi.product_id,
         oi.quantity,
         oi.notes,
+        oi.extras,
         oi.price_at_sale,
         p.name AS product_name,
         p.category AS product_category
@@ -161,15 +288,6 @@ export async function listOrderItems(orderId: string): Promise<OrderItemWithProd
   });
 
   return result.rows.map((row) => mapOrderItem(row as Record<string, unknown>));
-}
-
-async function getInventoryDeductionForMenuProduct(
-  menuProductId: string,
-  orderItemQuantity: number,
-): Promise<InventoryDeduction | null> {
-  const link = await getMenuProductInventoryLink(menuProductId);
-  if (!link) return null;
-  return resolveInventoryDeduction(menuProductId, link, orderItemQuantity);
 }
 
 async function validateInventoryDeduction(deduction: InventoryDeduction | null): Promise<void> {
@@ -229,6 +347,7 @@ async function getOrderItemById(itemId: string): Promise<OrderItemWithProduct | 
         oi.product_id,
         oi.quantity,
         oi.notes,
+        oi.extras,
         oi.price_at_sale,
         p.name AS product_name,
         p.category AS product_category
@@ -242,26 +361,6 @@ async function getOrderItemById(itemId: string): Promise<OrderItemWithProduct | 
 
   if (result.rows.length === 0) return null;
   return mapOrderItem(result.rows[0] as Record<string, unknown>);
-}
-
-async function validateInventoryForProduct(
-  productId: string,
-  requiresInventory: boolean,
-  quantity: number,
-  inventoryProductId?: string | null,
-  inventoryUnitsPerSale?: number,
-): Promise<void> {
-  const deduction = resolveInventoryDeduction(
-    productId,
-    {
-      requires_inventory: requiresInventory,
-      inventory_product_id: inventoryProductId ?? null,
-      inventory_units_per_sale: inventoryUnitsPerSale ?? 1,
-    },
-    quantity,
-  );
-
-  await validateInventoryDeduction(deduction);
 }
 
 export async function createOrderForTable(tableId: string, userId: string): Promise<Order> {
@@ -366,6 +465,7 @@ type AddOrderItemInput = {
   productId: string;
   quantity: number;
   notes?: string;
+  adicionalIds?: string[];
 };
 
 export async function addOrderItem(
@@ -385,39 +485,36 @@ export async function addOrderItem(
     throw new Error('Cantidad inválida');
   }
 
-  await validateInventoryForProduct(
-    product.id,
-    product.requires_inventory,
+  const extras = await resolveExtrasFromIds(input.adicionalIds ?? []);
+  if (extras.length > 0 && !productUsesAdicionales(product.category)) {
+    throw new Error('Este producto no admite adicionales');
+  }
+
+  const notes = input.notes?.trim() || null;
+  const priceAtSale = product.price + sumExtrasPrice(extras);
+  const extrasJson = extras.length > 0 ? JSON.stringify(extras) : null;
+
+  const deductions = await resolveDeductionsForStoredItem(
+    { product_id: product.id, extras },
     quantity,
-    product.inventory_product_id,
-    product.inventory_units_per_sale,
   );
 
+  for (const deduction of deductions) {
+    await validateInventoryDeduction(deduction);
+  }
+
   const itemId = createId();
-  const notes = input.notes?.trim() || null;
 
   await db.execute({
     sql: `
-      INSERT INTO order_items (id, order_id, product_id, quantity, notes, price_at_sale)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO order_items (id, order_id, product_id, quantity, notes, extras, price_at_sale)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `,
-    args: [itemId, orderId, product.id, quantity, notes, product.price],
+    args: [itemId, orderId, product.id, quantity, notes, extrasJson, priceAtSale],
   });
 
-  const deduction = resolveInventoryDeduction(
-    product.id,
-    {
-      requires_inventory: product.requires_inventory,
-      inventory_product_id: product.inventory_product_id ?? null,
-      inventory_units_per_sale: product.inventory_units_per_sale ?? 1,
-    },
-    quantity,
-  );
-
   try {
-    if (deduction) {
-      await deductInventoryForOrder(deduction.productId, deduction.quantity, userId, order.id);
-    }
+    await deductInventoryList(deductions, userId, order.id);
   } catch (error) {
     await db.execute({
       sql: 'DELETE FROM order_items WHERE id = ?',
@@ -448,11 +545,6 @@ export async function updateOrderItem(
 
   await assertOrderEditable(existing.order_id);
 
-  const link = await getMenuProductInventoryLink(existing.product_id);
-  if (!link) {
-    throw new Error('Producto no encontrado');
-  }
-
   const fields: string[] = [];
   const args: SqlArgs = [];
 
@@ -467,36 +559,16 @@ export async function updateOrderItem(
       throw new Error('Cantidad inválida');
     }
 
-    const previousDeduction = resolveInventoryDeduction(
-      existing.product_id,
-      link,
-      existing.quantity,
-    );
-    const nextDeduction = resolveInventoryDeduction(existing.product_id, link, newQuantity);
+    const previousDeductions = await resolveDeductionsForStoredItem(existing, existing.quantity);
+    const nextDeductions = await resolveDeductionsForStoredItem(existing, newQuantity);
+    const { deduct, restore } = inventoryDelta(previousDeductions, nextDeductions);
 
-    if (previousDeduction && nextDeduction) {
-      if (previousDeduction.productId !== nextDeduction.productId) {
-        throw new Error('No se pudo ajustar el inventario del producto');
-      }
-
-      const delta = nextDeduction.quantity - previousDeduction.quantity;
-      if (delta > 0) {
-        await validateInventoryDeduction({ ...nextDeduction, quantity: delta });
-        await deductInventoryForOrder(
-          nextDeduction.productId,
-          delta,
-          userId,
-          existing.order_id,
-        );
-      } else if (delta < 0) {
-        await restoreInventoryForOrder(
-          nextDeduction.productId,
-          -delta,
-          userId,
-          existing.order_id,
-        );
-      }
+    for (const deduction of deduct) {
+      await validateInventoryDeduction(deduction);
     }
+
+    await deductInventoryList(deduct, userId, existing.order_id);
+    await restoreInventoryList(restore, userId, existing.order_id);
 
     fields.push('quantity = ?');
     args.push(newQuantity);
@@ -522,19 +594,8 @@ export async function removeOrderItem(itemId: string, userId: string): Promise<b
 
   await assertOrderEditable(existing.order_id);
 
-  const deduction = await getInventoryDeductionForMenuProduct(
-    existing.product_id,
-    existing.quantity,
-  );
-
-  if (deduction) {
-    await restoreInventoryForOrder(
-      deduction.productId,
-      deduction.quantity,
-      userId,
-      existing.order_id,
-    );
-  }
+  const deductions = await resolveDeductionsForStoredItem(existing, existing.quantity);
+  await restoreInventoryList(deductions, userId, existing.order_id);
 
   const result = await db.execute({
     sql: 'DELETE FROM order_items WHERE id = ?',
@@ -627,15 +688,8 @@ export async function cancelOrder(orderId: string, userId: string): Promise<Orde
   const items = await listOrderItems(orderId);
 
   for (const item of items) {
-    const deduction = await getInventoryDeductionForMenuProduct(item.product_id, item.quantity);
-    if (deduction) {
-      await restoreInventoryForOrder(
-        deduction.productId,
-        deduction.quantity,
-        userId,
-        orderId,
-      );
-    }
+    const deductions = await resolveDeductionsForStoredItem(item, item.quantity);
+    await restoreInventoryList(deductions, userId, orderId);
   }
 
   const now = new Date().toISOString();
@@ -869,8 +923,9 @@ export async function payOrder(
         throw new Error('La tasa de cambio no está configurada');
       }
 
-      const expectedCop = payment.foreign_amount * rate;
-      if (Math.abs(expectedCop - payment.amount_cop) > 1) {
+      payment.foreign_amount = roundToCents(payment.foreign_amount);
+
+      if (!isForeignAmountWithinRate(payment.foreign_amount, payment.amount_cop, rate)) {
         throw new Error(
           isBs
             ? 'El monto en bolívares no coincide con la tasa de cambio'
@@ -886,6 +941,27 @@ export async function payOrder(
     }
 
     totalPaid += payment.amount_cop;
+  }
+
+  const roundingGap = order.total - totalPaid;
+  if (Math.abs(roundingGap) > 0.5) {
+    const lastForeign = [...payments]
+      .reverse()
+      .find((payment) => payment.foreign_amount && payment.foreign_amount > 0);
+
+    if (lastForeign) {
+      const rate =
+        lastForeign.foreign_currency === 'bs' ||
+        lastForeign.payment_method === 'punto_de_venta' ||
+        lastForeign.payment_method === 'pago_movil'
+          ? rates.bs_rate
+          : rates.usd_rate;
+
+      if (Math.abs(roundingGap) <= foreignRoundingToleranceCop(rate)) {
+        lastForeign.amount_cop += roundingGap;
+        totalPaid = order.total;
+      }
+    }
   }
 
   if (Math.abs(totalPaid - order.total) > 0.5) {

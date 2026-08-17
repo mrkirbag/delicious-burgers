@@ -118,7 +118,8 @@ CREATE TABLE order_items (
     product_id TEXT NOT NULL,
     quantity INTEGER NOT NULL,
     notes TEXT, -- "Sin cebolla", "Bien cocido", etc.
-    price_at_sale REAL NOT NULL, -- Por si el catálogo cambia de precio después
+    extras TEXT, -- JSON: adicionales ligados al producto [{product_id, name, price}]
+    price_at_sale REAL NOT NULL, -- Precio unitario (producto + adicionales)
     FOREIGN KEY(order_id) REFERENCES orders(id),
     FOREIGN KEY(product_id) REFERENCES products(id)
 );

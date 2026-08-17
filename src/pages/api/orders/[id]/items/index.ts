@@ -20,7 +20,7 @@ export const POST: APIRoute = async (context) => {
     return Response.json({ error: 'Comanda no encontrada' }, { status: 404 });
   }
 
-  let body: { product_id?: string; quantity?: number; notes?: string };
+  let body: { product_id?: string; quantity?: number; notes?: string; adicional_ids?: string[] };
 
   try {
     body = await context.request.json();
@@ -31,6 +31,9 @@ export const POST: APIRoute = async (context) => {
   const productId = body.product_id?.trim();
   const quantity = body.quantity ?? 1;
   const notes = body.notes;
+  const adicionalIds = Array.isArray(body.adicional_ids)
+    ? body.adicional_ids.filter((id): id is string => typeof id === 'string')
+    : [];
 
   if (!productId) {
     return Response.json({ error: 'product_id es requerido' }, { status: 400 });
@@ -39,7 +42,7 @@ export const POST: APIRoute = async (context) => {
   try {
     const item = await addOrderItem(
       id,
-      { productId, quantity: Number(quantity), notes },
+      { productId, quantity: Number(quantity), notes, adicionalIds },
       session.userId,
     );
     const updatedOrder = await getOrderById(id);
