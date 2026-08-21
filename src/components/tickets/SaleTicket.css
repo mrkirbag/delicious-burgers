@@ -7,10 +7,12 @@
   border-radius: 0.25rem;
   background: #fff;
   color: #000;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: Consolas, 'Lucida Console', 'Courier New', Courier, monospace;
   font-size: 11px;
+  font-weight: 800;
   line-height: 1.35;
   word-break: break-word;
+  -webkit-text-stroke: 0.55px #000;
 }
 
 .sale-ticket__header {
@@ -20,7 +22,8 @@
 .sale-ticket__brand {
   margin: 0;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 900;
+  -webkit-text-stroke: 0.7px #000;
 }
 
 .sale-ticket__header p {
@@ -38,7 +41,8 @@
 
 .sale-ticket__order-label {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 900;
+  -webkit-text-stroke: 0.7px #000;
 }
 
 .sale-ticket__item + .sale-ticket__item {
@@ -56,7 +60,7 @@
   margin: 0.05rem 0 0;
   padding-left: 0.15rem;
   font-size: 10px;
-  font-weight: 400;
+  font-weight: 700;
 }
 
 .sale-ticket__line span:first-child {
@@ -70,8 +74,9 @@
 }
 
 .sale-ticket__total {
-  font-weight: 700;
+  font-weight: 900;
   font-size: 12px;
+  -webkit-text-stroke: 0.7px #000;
 }
 
 .sale-ticket__payment,
@@ -109,7 +114,21 @@
     box-shadow: none;
     background: #fff;
     color: #000;
+    font-weight: 800;
+    -webkit-text-stroke: 0.55px #000;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  #sale-ticket * {
+    font-weight: inherit;
+    -webkit-text-stroke: inherit;
+  }
+
+  #sale-ticket .sale-ticket__brand,
+  #sale-ticket .sale-ticket__order-label,
+  #sale-ticket .sale-ticket__total {
+    font-weight: 900;
+    -webkit-text-stroke: 0.7px #000;
   }
 }

@@ -7,10 +7,12 @@
   border-radius: 0.25rem;
   background: #fff;
   color: #000;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: Consolas, 'Lucida Console', 'Courier New', Courier, monospace;
   font-size: 11px;
+  font-weight: 800;
   line-height: 1.35;
   word-break: break-word;
+  -webkit-text-stroke: 0.55px #000;
 }
 
 .kitchen-ticket__header {
@@ -20,14 +22,16 @@
 .kitchen-ticket__brand {
   margin: 0;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 900;
+  -webkit-text-stroke: 0.7px #000;
 }
 
 .kitchen-ticket__title {
   margin: 0.25rem 0 0;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 900;
   letter-spacing: 0.04em;
+  -webkit-text-stroke: 0.7px #000;
 }
 
 .kitchen-ticket__divider {
@@ -49,7 +53,8 @@
 
 .kitchen-ticket__order-label {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 900;
+  -webkit-text-stroke: 0.7px #000;
 }
 
 .kitchen-ticket__notes {
@@ -64,7 +69,7 @@
   display: flex;
   gap: 0.35rem;
   margin: 0;
-  font-weight: 700;
+  font-weight: 900;
 }
 
 .kitchen-ticket__qty {
@@ -80,7 +85,7 @@
 .kitchen-ticket__item-notes {
   margin: 0.1rem 0 0 1.85rem;
   font-size: 10px;
-  font-weight: 400;
+  font-weight: 700;
 }
 
 .kitchen-ticket__footer {
@@ -116,7 +121,22 @@
     box-shadow: none;
     background: #fff;
     color: #000;
+    font-weight: 800;
+    -webkit-text-stroke: 0.55px #000;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  #kitchen-ticket * {
+    font-weight: inherit;
+    -webkit-text-stroke: inherit;
+  }
+
+  #kitchen-ticket .kitchen-ticket__brand,
+  #kitchen-ticket .kitchen-ticket__title,
+  #kitchen-ticket .kitchen-ticket__order-label,
+  #kitchen-ticket .kitchen-ticket__item-row {
+    font-weight: 900;
+    -webkit-text-stroke: 0.7px #000;
   }
 }
