@@ -18,6 +18,10 @@ describe('permissions', () => {
   it('permite que mesero acceda al panel principal', () => {
     expect(canAccessRoute('mesero', '/panel')).toBe(true);
   });
+
+  it('permite que mesero vea cocina y marque pedidos', () => {
+    expect(canAccessRoute('mesero', '/panel/cocina')).toBe(true);
+  });
 });
 
 describe('rate limit', () => {

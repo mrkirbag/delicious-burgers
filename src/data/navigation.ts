@@ -81,7 +81,7 @@ export const navSections: NavSection[] = [
     label: 'Cocina',
     icon: ChefHat,
     dividerBefore: true,
-    roles: ['admin', 'cocina'],
+    roles: ['admin', 'cocina', 'mesero'],
     items: [
       {
         label: 'Cocina',

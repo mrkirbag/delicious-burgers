@@ -117,7 +117,7 @@ npx netlify deploy --prod
 |-----|--------|
 | **Admin** | Panel completo: catálogo, inventario, reportes, usuarios, tasas |
 | **Cajero** | Caja, facturas, comandas, mesas, domicilios |
-| **Mesero** | Mesas, domicilios, comandas |
+| **Mesero** | Mesas, domicilios, comandas y tablero de cocina (marcar listo y entregado) |
 | **Cocina** | Tablero de cocina (redirige automáticamente a `/panel/cocina`) |
 
 ## White-label

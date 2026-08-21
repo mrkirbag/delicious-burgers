@@ -4,7 +4,7 @@ import { requireRoles } from '@/lib/auth/require-roles';
 import { listKitchenOrders } from '@/lib/db/orders';
 import type { UserRole } from '@/lib/db/types';
 
-const KITCHEN_ROLES: UserRole[] = ['admin', 'cocina'];
+const KITCHEN_ROLES: UserRole[] = ['admin', 'cocina', 'mesero'];
 
 export const GET: APIRoute = async (context) => {
   const auth = requireRoles(context, KITCHEN_ROLES);

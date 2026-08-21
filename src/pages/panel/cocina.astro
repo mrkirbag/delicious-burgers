@@ -4,7 +4,7 @@ import PanelLayout from '@/layouts/PanelLayout.astro';
 
 const session = Astro.locals.session!;
 
-if (session.role !== 'admin' && session.role !== 'cocina') {
+if (session.role !== 'admin' && session.role !== 'cocina' && session.role !== 'mesero') {
   return Astro.redirect('/panel');
 }
 ---
